@@ -263,6 +263,7 @@ export default function Dashboard() {
           rowHeight={80}
           isDraggable={true}
           isResizable={true}
+          resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
         >
           <div key="watchlist-1">
             <WatchlistWidget
