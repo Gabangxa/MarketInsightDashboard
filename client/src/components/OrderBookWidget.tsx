@@ -30,70 +30,119 @@ interface OrderBookWidgetProps {
   onConfigure?: () => void;
 }
 
-// Price grouping levels
-const PRECISION_LEVELS = [
-  { value: "0.01", label: "$0.01" },
-  { value: "0.10", label: "$0.10" },
-  { value: "1.00", label: "$1.00" },
-  { value: "10.00", label: "$10.00" },
+// Percentage increment levels for depth buckets
+const PERCENTAGE_LEVELS = [
+  { value: "0.1", label: "0.1%" },
+  { value: "0.2", label: "0.2%" },
+  { value: "0.5", label: "0.5%" },
+  { value: "1.0", label: "1.0%" },
 ];
 
-// Simple aggregation without fixed grid
-function aggregateOrders(
+const BUCKET_COUNT = 10; // Fixed 10 levels each side
+
+interface DepthBucket {
+  price: number;
+  size: number;
+  total: number;
+  percentage: number; // Distance from mid in %
+}
+
+// Create percentage-based depth buckets
+function createDepthBuckets(
   orders: OrderBookEntry[],
-  precision: number,
+  midPrice: number,
+  percentIncrement: number,
   type: 'bid' | 'ask'
-): Array<{ price: number; size: number; total: number }> {
-  const priceMap = new Map<number, number>();
+): DepthBucket[] {
+  // Create 10 fixed buckets based on percentage from mid
+  const buckets: DepthBucket[] = [];
   
-  // Group by rounded price
-  orders.forEach(order => {
-    const roundedPrice = type === 'bid'
-      ? Math.floor(order.price / precision) * precision
-      : Math.ceil(order.price / precision) * precision;
+  for (let i = 1; i <= BUCKET_COUNT; i++) {
+    const pct = i * percentIncrement / 100; // Convert to decimal
+    const price = type === 'ask' 
+      ? midPrice * (1 + pct)  // Asks go up
+      : midPrice * (1 - pct); // Bids go down
     
-    priceMap.set(roundedPrice, (priceMap.get(roundedPrice) || 0) + order.size);
-  });
+    buckets.push({
+      price,
+      size: 0,
+      total: 0,
+      percentage: i * percentIncrement
+    });
+  }
   
-  // Convert to array and sort
-  const sorted = Array.from(priceMap.entries())
-    .map(([price, size]) => ({ price, size, total: 0 }))
-    .sort((a, b) => type === 'bid' ? b.price - a.price : a.price - b.price);
+  // Map incoming orders to nearest bucket
+  orders.forEach(order => {
+    const orderPct = Math.abs((order.price - midPrice) / midPrice) * 100;
+    
+    // Find the bucket this order belongs to
+    const bucketIndex = Math.min(
+      Math.floor(orderPct / percentIncrement),
+      BUCKET_COUNT - 1
+    );
+    
+    if (bucketIndex >= 0 && bucketIndex < BUCKET_COUNT) {
+      buckets[bucketIndex].size += order.size;
+    }
+  });
   
   // Calculate running totals
   let runningTotal = 0;
-  sorted.forEach(item => {
-    runningTotal += item.price * item.size;
-    item.total = runningTotal;
+  buckets.forEach(bucket => {
+    runningTotal += bucket.price * bucket.size;
+    bucket.total = runningTotal;
   });
   
-  return sorted;
+  return buckets;
 }
 
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
-  const [precision, setPrecision] = useState("0.10");
-  const precisionValue = parseFloat(precision);
+  const [percentIncrement, setPercentIncrement] = useState("0.1");
+  const incrementValue = parseFloat(percentIncrement);
 
-  // Aggregate orders with stable keys
-  const { displayAsks, displayBids, maxTotal } = useMemo(() => {
-    const asks = aggregateOrders(data.asks, precisionValue, 'ask').slice(0, 10);
-    const bids = aggregateOrders(data.bids, precisionValue, 'bid').slice(0, 10);
+  // Calculate mid price and create percentage-based buckets
+  const { displayAsks, displayBids, maxTotal, midPrice } = useMemo(() => {
+    // Calculate mid price from best bid and ask
+    const bestBid = data.bids[0]?.price || 0;
+    const bestAsk = data.asks[0]?.price || 0;
+    const mid = (bestBid + bestAsk) / 2;
     
-    // Reverse asks for display (highest to lowest)
-    const asksReversed = [...asks].reverse();
+    if (!mid || !bestBid || !bestAsk) {
+      return {
+        displayAsks: [],
+        displayBids: [],
+        maxTotal: 1,
+        midPrice: 0
+      };
+    }
+    
+    // Create fixed percentage buckets
+    const askBuckets = createDepthBuckets(data.asks, mid, incrementValue, 'ask');
+    const bidBuckets = createDepthBuckets(data.bids, mid, incrementValue, 'bid');
+    
+    // Reverse asks for display (furthest from mid at top, closest at bottom)
+    const asksReversed = [...askBuckets].reverse();
+    
+    // Recalculate running totals in display order (top to bottom)
+    let askRunningTotal = 0;
+    asksReversed.forEach(ask => {
+      askRunningTotal += ask.price * ask.size;
+      ask.total = askRunningTotal;
+    });
     
     const max = Math.max(
-      ...asks.map(a => a.total),
-      ...bids.map(b => b.total),
+      ...asksReversed.map(a => a.total),
+      ...bidBuckets.map(b => b.total),
       1
     );
     
     return {
       displayAsks: asksReversed,
-      displayBids: bids,
-      maxTotal: max
+      displayBids: bidBuckets,
+      maxTotal: max,
+      midPrice: mid
     };
-  }, [data.asks, data.bids, precisionValue]);
+  }, [data.asks, data.bids, incrementValue]);
 
   return (
     <Card className="p-4" data-testid="widget-order-book">
@@ -123,12 +172,12 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Select value={precision} onValueChange={setPrecision}>
+          <Select value={percentIncrement} onValueChange={setPercentIncrement}>
             <SelectTrigger className="h-6 w-20 text-xs" data-testid="select-precision">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PRECISION_LEVELS.map((level) => (
+              {PERCENTAGE_LEVELS.map((level) => (
                 <SelectItem key={level.value} value={level.value}>
                   {level.label}
                 </SelectItem>
@@ -155,14 +204,14 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           <span className="text-right">Total</span>
         </div>
 
-        {/* Asks (Sells) - Red, highest to lowest */}
+        {/* Asks (Sells) - Red, furthest from mid at top */}
         <div className="space-y-1">
           {displayAsks.length > 0 ? (
-            displayAsks.map((ask) => (
+            displayAsks.map((ask, idx) => (
               <div
-                key={`ask-${ask.price.toFixed(2)}`}
+                key={`ask-${ask.percentage}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-ask-${ask.price.toFixed(2)}`}
+                data-testid={`orderbook-ask-${ask.percentage}`}
               >
                 <div
                   className="absolute inset-0 bg-negative/20"
@@ -193,14 +242,14 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           </div>
         </div>
 
-        {/* Bids (Buys) - Green, highest to lowest */}
+        {/* Bids (Buys) - Green, closest to mid at top */}
         <div className="space-y-1">
           {displayBids.length > 0 ? (
-            displayBids.map((bid) => (
+            displayBids.map((bid, idx) => (
               <div
-                key={`bid-${bid.price.toFixed(2)}`}
+                key={`bid-${bid.percentage}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-bid-${bid.price.toFixed(2)}`}
+                data-testid={`orderbook-bid-${bid.percentage}`}
               >
                 <div
                   className="absolute inset-0 bg-positive/20"
