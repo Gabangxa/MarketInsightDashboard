@@ -83,18 +83,7 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
               ${(data.volume24hUSDT / 1_000_000).toFixed(2)}M
             </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">All-Time High</span>
-            <span className="text-sm font-mono font-medium text-positive">
-              ${data.allTimeHigh.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">All-Time Low</span>
-            <span className="text-sm font-mono font-medium text-negative">
-              ${data.allTimeLow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
+          {/* ATH/ATL hidden - to be replaced with actual exchange data later */}
         </div>
 
         {data.exchanges.length > 0 && (

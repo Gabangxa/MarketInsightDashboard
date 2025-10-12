@@ -117,14 +117,14 @@ export function aggregateOrderBook(
     askMap.set(price, existing);
   });
 
-  // Sort and limit to top 5
+  // Sort and limit to top 25 (enough for precision grouping)
   const sortedBids = Array.from(bidMap.entries())
     .sort(([a], [b]) => b - a) // Highest first
-    .slice(0, 5);
+    .slice(0, 25);
   
   const sortedAsks = Array.from(askMap.entries())
     .sort(([a], [b]) => a - b) // Lowest first
-    .slice(0, 5);
+    .slice(0, 25);
 
   // Calculate totals
   let bidTotal = 0;
@@ -142,7 +142,7 @@ export function aggregateOrderBook(
   const bestBid = bids[0]?.price || 0;
   const bestAsk = asks[0]?.price || 0;
   const spread = bestAsk - bestBid;
-  const spreadPercent = (spread / bestBid) * 100;
+  const spreadPercent = bestBid > 0 ? (spread / bestBid) * 100 : 0;
 
   return {
     symbol,

@@ -94,7 +94,7 @@ function groupAsksByPrice(
     }
   });
 
-  // Convert to array, sort ascending (best asks first), take top 10
+  // Convert to array, sort ascending (best asks first), take top 10, then reverse for display
   return Array.from(grouped.entries())
     .map(([price, data]) => ({
       price,
@@ -102,7 +102,8 @@ function groupAsksByPrice(
       total: data.total,
     }))
     .sort((a, b) => a.price - b.price)
-    .slice(0, 10);
+    .slice(0, 10)
+    .reverse(); // Reverse here once in memoized function, not in render
 }
 
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
@@ -187,7 +188,7 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
         {/* Asks (Sells) - Red, displayed from highest to lowest (descending) */}
         <div className="space-y-1">
           {groupedAsks.length > 0 ? (
-            [...groupedAsks].reverse().map((ask) => (
+            groupedAsks.map((ask) => (
               <div
                 key={`ask-${ask.price}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
