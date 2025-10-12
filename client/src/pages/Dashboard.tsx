@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid } from "lucide-react";
@@ -9,146 +10,169 @@ import AlertsWidget from "@/components/AlertsWidget";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import WatchlistWidget from "@/components/WatchlistWidget";
 import { Toaster } from "react-hot-toast";
+import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
+import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
+import { useAlertMonitor } from "@/lib/useAlertMonitor";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-//todo: remove mock functionality - mock data for prototype
-const mockMarketData = {
-  symbol: "BTCUSDT",
-  price: 67234.56,
-  priceChange: 1234.56,
-  priceChangePercent: 1.87,
-  volume24hUSDT: 42500000000,
-  allTimeHigh: 73750.07,
-  allTimeLow: 15760.00,
-  exchanges: ["Binance", "Bybit"]
-};
-
-//todo: remove mock functionality - mock data for prototype
-const mockOrderBook = {
-  symbol: "BTCUSDT",
-  bids: [
-    { price: 67230.00, size: 0.5234, total: 35186.12 },
-    { price: 67229.50, size: 1.2341, total: 82965.83 },
-    { price: 67229.00, size: 0.8765, total: 58921.47 },
-    { price: 67228.50, size: 2.1234, total: 142743.22 },
-    { price: 67228.00, size: 0.4567, total: 30695.52 },
-  ],
-  asks: [
-    { price: 67235.00, size: 0.6543, total: 43995.71 },
-    { price: 67235.50, size: 1.4321, total: 96290.37 },
-    { price: 67236.00, size: 0.9876, total: 66398.13 },
-    { price: 67236.50, size: 2.3456, total: 157715.79 },
-    { price: 67237.00, size: 0.5678, total: 38172.27 },
-  ],
-  spread: 5.00,
-  spreadPercent: 0.007,
-  exchanges: ["Binance", "Bybit", "OKX"]
-};
-
-//todo: remove mock functionality - mock data for prototype
-const mockWebhookMessages = [
-  {
-    id: "1",
-    source: "TradingView",
-    message: "BTC breakout signal detected at $67,500 resistance level",
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    bookmarked: true
-  },
-  {
-    id: "2",
-    source: "PriceAlert",
-    message: "ETH price crossed $3,200 threshold - alert triggered",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    bookmarked: false
-  },
-  {
-    id: "3",
-    source: "VolumeMonitor",
-    message: "Unusual volume spike detected on BTCUSDT - 200% above average",
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    bookmarked: false
-  }
-];
-
-//todo: remove mock functionality - mock data for prototype
-const mockAlerts = [
-  {
-    id: "1",
-    type: "price" as const,
-    exchanges: ["Binance", "Bybit"],
-    condition: ">",
-    value: 68000,
-    triggered: false
-  },
-  {
-    id: "2",
-    type: "keyword" as const,
-    exchanges: ["Binance"],
-    keyword: "breakout",
-    triggered: true,
-    lastTriggered: new Date(Date.now() - 5 * 60 * 1000)
-  }
-];
-
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
-  const [webhookMessages, setWebhookMessages] = useState(mockWebhookMessages);
-  const [alerts, setAlerts] = useState(mockAlerts);
-  
-  //todo: remove mock functionality - watchlist state
-  const [watchlistTokens, setWatchlistTokens] = useState([
-    { symbol: "BTCUSDT", price: 67234.56, change24h: 1.87, volume24h: 42500000000, change7d: 5.23 },
-    { symbol: "ETHUSDT", price: 3245.78, change24h: -0.45, volume24h: 18300000000, change7d: 3.12 },
-    { symbol: "BNBUSDT", price: 612.34, change24h: 2.15, volume24h: 1200000000, change7d: -1.89 }
-  ]);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
-  
-  //todo: remove mock functionality - generate market data based on selected symbol
-  const getMarketDataForSymbol = (symbol: string) => {
-    const token = watchlistTokens.find(t => t.symbol === symbol);
-    if (!token) return mockMarketData;
-    
-    return {
-      symbol: token.symbol,
-      price: token.price,
-      priceChange: token.price * (token.change24h / 100),
-      priceChangePercent: token.change24h,
-      volume24hUSDT: token.volume24h,
-      allTimeHigh: token.price * 1.15,
-      allTimeLow: token.price * 0.45,
-      exchanges: ["Binance", "Bybit"]
+  const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Binance", "Bybit"]);
+
+  // WebSocket connection
+  const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
+
+  // Fetch watchlist
+  const { data: watchlistTokens = [] } = useQuery<WatchlistToken[]>({
+    queryKey: ["/api/watchlist"],
+  });
+
+  // Fetch alerts
+  const { data: alerts = [] } = useQuery<Alert[]>({
+    queryKey: ["/api/alerts"],
+  });
+
+  // Fetch webhooks
+  const { data: webhookMessages = [] } = useQuery<WebhookMessage[]>({
+    queryKey: ["/api/webhooks"],
+  });
+
+  // Alert monitor
+  useAlertMonitor({
+    alerts,
+    marketData,
+    newWebhook,
+  });
+
+  // Watchlist mutations
+  const addWatchlistMutation = useMutation({
+    mutationFn: async (symbol: string) => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        symbol,
+        exchanges: selectedExchanges,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+    },
+  });
+
+  const removeWatchlistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/watchlist/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+    },
+  });
+
+  // Alert mutations
+  const addAlertMutation = useMutation({
+    mutationFn: async (config: any) => {
+      const res = await apiRequest("POST", "/api/alerts", config);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+    },
+  });
+
+  const deleteAlertMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/alerts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+    },
+  });
+
+  // Webhook mutations
+  const toggleBookmarkMutation = useMutation({
+    mutationFn: async ({ id, bookmarked }: { id: string; bookmarked: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/webhooks/${id}`, { bookmarked: !bookmarked });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
+    },
+  });
+
+  // Subscribe to symbols on watchlist
+  useEffect(() => {
+    watchlistTokens.forEach((token) => {
+      subscribe(token.symbol, token.exchanges as string[]);
+    });
+
+    return () => {
+      watchlistTokens.forEach((token) => {
+        unsubscribe(token.symbol);
+      });
     };
-  };
-  
-  //todo: remove mock functionality - generate orderbook data based on selected symbol
-  const getOrderBookForSymbol = (symbol: string) => {
-    const token = watchlistTokens.find(t => t.symbol === symbol);
-    const basePrice = token?.price || 67234.56;
-    
-    return {
-      symbol: symbol,
-      bids: [
-        { price: basePrice - 4.5, size: 0.5234, total: 35186.12 },
-        { price: basePrice - 5.0, size: 1.2341, total: 82965.83 },
-        { price: basePrice - 5.5, size: 0.8765, total: 58921.47 },
-        { price: basePrice - 6.0, size: 2.1234, total: 142743.22 },
-        { price: basePrice - 6.5, size: 0.4567, total: 30695.52 },
-      ],
-      asks: [
-        { price: basePrice + 0.5, size: 0.6543, total: 43995.71 },
-        { price: basePrice + 1.0, size: 1.4321, total: 96290.37 },
-        { price: basePrice + 1.5, size: 0.9876, total: 66398.13 },
-        { price: basePrice + 2.0, size: 2.3456, total: 157715.79 },
-        { price: basePrice + 2.5, size: 0.5678, total: 38172.27 },
-      ],
-      spread: 5.00,
-      spreadPercent: 0.007,
-      exchanges: ["Binance", "Bybit", "OKX"]
+  }, [watchlistTokens, subscribe, unsubscribe]);
+
+  // Subscribe to selected symbol
+  useEffect(() => {
+    subscribe(selectedSymbol, selectedExchanges);
+    return () => {
+      unsubscribe(selectedSymbol);
     };
-  };
+  }, [selectedSymbol, selectedExchanges, subscribe, unsubscribe]);
+
+  // Aggregate market data for selected symbol
+  const aggregatedMarketData = useMemo(() => {
+    const symbolData = marketData.get(selectedSymbol);
+    if (!symbolData) return null;
+    return aggregateMarketData(selectedSymbol, symbolData);
+  }, [selectedSymbol, marketData]);
+
+  // Aggregate order book for selected symbol
+  const aggregatedOrderBook = useMemo(() => {
+    const symbolOrderBooks = orderBooks.get(selectedSymbol);
+    if (!symbolOrderBooks) return null;
+    return aggregateOrderBook(selectedSymbol, symbolOrderBooks);
+  }, [selectedSymbol, orderBooks]);
+
+  // Calculate watchlist display data
+  const watchlistData = useMemo(() => {
+    return watchlistTokens.map((token) => {
+      const symbolData = marketData.get(token.symbol);
+      if (!symbolData) {
+        return {
+          symbol: token.symbol,
+          price: 0,
+          change24h: 0,
+          volume24h: 0,
+          change7d: 0,
+        };
+      }
+
+      const aggregated = aggregateMarketData(token.symbol, symbolData);
+      if (!aggregated) {
+        return {
+          symbol: token.symbol,
+          price: 0,
+          change24h: 0,
+          volume24h: 0,
+          change7d: 0,
+        };
+      }
+
+      return {
+        symbol: token.symbol,
+        price: aggregated.price,
+        change24h: aggregated.priceChangePercent,
+        volume24h: aggregated.volume24hUSDT,
+        change7d: aggregated.priceChangePercent * 1.2, // Mock 7d change
+      };
+    });
+  }, [watchlistTokens, marketData]);
 
   const [layouts] = useState<{ lg: Layout[] }>({
     lg: [
@@ -160,33 +184,6 @@ export default function Dashboard() {
     ]
   });
 
-  const handleToggleBookmark = (id: string) => {
-    setWebhookMessages(prev => prev.map(msg =>
-      msg.id === id ? { ...msg, bookmarked: !msg.bookmarked } : msg
-    ));
-  };
-
-  const handleDeleteAlert = (id: string) => {
-    setAlerts(prev => prev.filter(alert => alert.id !== id));
-  };
-  
-  const handleAddWatchlistToken = (symbol: string) => {
-    if (!watchlistTokens.find(t => t.symbol === symbol) && watchlistTokens.length < 10) {
-      //todo: remove mock functionality - generate random data for new token
-      setWatchlistTokens(prev => [...prev, {
-        symbol,
-        price: Math.random() * 1000 + 100,
-        change24h: (Math.random() - 0.5) * 10,
-        volume24h: Math.random() * 10000000000,
-        change7d: (Math.random() - 0.5) * 20
-      }]);
-    }
-  };
-  
-  const handleRemoveWatchlistToken = (symbol: string) => {
-    setWatchlistTokens(prev => prev.filter(t => t.symbol !== symbol));
-  };
-  
   const handleSelectToken = (symbol: string) => {
     setSelectedSymbol(symbol);
   };
@@ -200,6 +197,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <LayoutGrid className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Market Dashboard</h1>
+            {!isConnected && (
+              <span className="text-xs text-destructive">Connecting...</span>
+            )}
           </div>
           <Button
             variant="outline"
@@ -224,36 +224,72 @@ export default function Dashboard() {
         >
           <div key="watchlist-1" className="drag-handle cursor-move">
             <WatchlistWidget
-              tokens={watchlistTokens}
+              tokens={watchlistData}
               selectedSymbol={selectedSymbol}
-              onAddToken={handleAddWatchlistToken}
-              onRemoveToken={handleRemoveWatchlistToken}
+              onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
+              onRemoveToken={(symbol) => {
+                const token = watchlistTokens.find(t => t.symbol === symbol);
+                if (token) removeWatchlistMutation.mutate(token.id);
+              }}
               onSelectToken={handleSelectToken}
             />
           </div>
           <div key="market-1" className="drag-handle cursor-move">
             <MarketDataWidget
-              data={getMarketDataForSymbol(selectedSymbol)}
+              data={aggregatedMarketData || {
+                symbol: selectedSymbol,
+                price: 0,
+                priceChange: 0,
+                priceChangePercent: 0,
+                volume24hUSDT: 0,
+                allTimeHigh: 0,
+                allTimeLow: 0,
+                exchanges: [],
+              }}
               onConfigure={() => console.log('Configure market widget')}
             />
           </div>
           <div key="orderbook-1" className="drag-handle cursor-move">
             <OrderBookWidget
-              data={getOrderBookForSymbol(selectedSymbol)}
+              data={aggregatedOrderBook || {
+                symbol: selectedSymbol,
+                bids: [],
+                asks: [],
+                spread: 0,
+                spreadPercent: 0,
+                exchanges: [],
+              }}
               onConfigure={() => console.log('Configure orderbook widget')}
             />
           </div>
           <div key="webhook-1" className="drag-handle cursor-move">
             <WebhookWidget
-              messages={webhookMessages}
-              onToggleBookmark={handleToggleBookmark}
+              messages={webhookMessages.map(wh => ({
+                ...wh,
+                timestamp: new Date(wh.timestamp),
+              }))}
+              onToggleBookmark={(id) => {
+                const msg = webhookMessages.find(m => m.id === id);
+                if (msg) {
+                  toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
+                }
+              }}
             />
           </div>
           <div key="alerts-1" className="drag-handle cursor-move">
             <AlertsWidget
-              alerts={alerts}
+              alerts={alerts.map(a => ({
+                id: a.id,
+                type: a.type as "price" | "keyword",
+                exchanges: a.exchanges as string[],
+                condition: a.condition || undefined,
+                value: a.value ? parseFloat(a.value) : undefined,
+                keyword: a.keyword || undefined,
+                triggered: a.triggered,
+                lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
+              }))}
               onAddAlert={() => setIsAlertPanelOpen(true)}
-              onDeleteAlert={handleDeleteAlert}
+              onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
             />
           </div>
         </ResponsiveGridLayout>
@@ -263,9 +299,7 @@ export default function Dashboard() {
         isOpen={isAlertPanelOpen}
         onClose={() => setIsAlertPanelOpen(false)}
         onSave={(config) => {
-          const newAlert = { ...config, triggered: false, lastTriggered: undefined };
-          setAlerts(prev => [...prev, newAlert as typeof alerts[0]]);
-          console.log('Alert saved:', config);
+          addAlertMutation.mutate(config);
         }}
       />
     </div>
