@@ -100,7 +100,8 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
   const [percentIncrement, setPercentIncrement] = useState("0.1");
   const incrementValue = parseFloat(percentIncrement);
 
-  // Calculate mid price and create percentage-based buckets
+  // Calculate mid price and create percentage-based buckets  
+  // CSS transitions handle visual smoothness, no throttling needed
   const { displayAsks, displayBids, maxTotal, midPrice } = useMemo(() => {
     // Calculate mid price from best bid and ask
     const bestBid = data.bids[0]?.price || 0;
@@ -214,7 +215,7 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
                 data-testid={`orderbook-ask-${ask.percentage}`}
               >
                 <div
-                  className="absolute inset-0 bg-negative/20"
+                  className="absolute inset-0 bg-negative/20 transition-all duration-300 ease-out"
                   style={{ width: `${(ask.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-negative font-medium">
@@ -254,7 +255,7 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
                 data-testid={`orderbook-bid-${bid.percentage}`}
               >
                 <div
-                  className="absolute inset-0 bg-positive/20"
+                  className="absolute inset-0 bg-positive/20 transition-all duration-300 ease-out"
                   style={{ width: `${(bid.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-positive font-medium">
