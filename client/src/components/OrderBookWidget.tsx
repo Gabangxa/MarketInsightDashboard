@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -39,91 +38,83 @@ const PRECISION_LEVELS = [
   { value: "10.00", label: "$10.00" },
 ];
 
-function groupBidsByPrice(
+// Create stable price ladder with fixed levels
+function createPriceLadder(
   orders: OrderBookEntry[],
-  precision: number
-): OrderBookEntry[] {
-  const grouped = new Map<number, { size: number; total: number }>();
+  precision: number,
+  type: 'bid' | 'ask',
+  count: number = 10
+): Array<{ priceLevel: number; size: number; total: number }> {
+  if (orders.length === 0) return [];
 
-  orders.forEach((order) => {
-    // Bids: Round DOWN to precision level
-    const groupedPrice = Math.floor(order.price / precision) * precision;
+  // Find the best price (highest bid or lowest ask)
+  const bestPrice = type === 'bid' 
+    ? Math.max(...orders.map(o => o.price))
+    : Math.min(...orders.map(o => o.price));
+
+  // Round to precision to get the starting level
+  const startLevel = type === 'bid'
+    ? Math.floor(bestPrice / precision) * precision
+    : Math.ceil(bestPrice / precision) * precision;
+
+  // Create fixed price levels
+  const priceLevels: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const level = type === 'bid'
+      ? startLevel - (i * precision)
+      : startLevel + (i * precision);
+    priceLevels.push(level);
+  }
+
+  // Aggregate orders into fixed price levels
+  const levelMap = new Map<number, number>();
+  
+  orders.forEach(order => {
+    // Find which level this order belongs to
+    const orderLevel = type === 'bid'
+      ? Math.floor(order.price / precision) * precision
+      : Math.ceil(order.price / precision) * precision;
     
-    const existing = grouped.get(groupedPrice);
-    if (existing) {
-      existing.size += order.size;
-      existing.total += order.total;
-    } else {
-      grouped.set(groupedPrice, {
-        size: order.size,
-        total: order.total,
-      });
+    // Only include if it matches one of our fixed levels
+    if (priceLevels.includes(orderLevel)) {
+      levelMap.set(orderLevel, (levelMap.get(orderLevel) || 0) + order.size);
     }
   });
 
-  // Convert to array, sort descending (best bids first), take top 10
-  return Array.from(grouped.entries())
-    .map(([price, data]) => ({
-      price,
-      size: data.size,
-      total: data.total,
-    }))
-    .sort((a, b) => b.price - a.price)
-    .slice(0, 10);
-}
-
-function groupAsksByPrice(
-  orders: OrderBookEntry[],
-  precision: number
-): OrderBookEntry[] {
-  const grouped = new Map<number, { size: number; total: number }>();
-
-  orders.forEach((order) => {
-    // Asks: Round UP to precision level
-    const groupedPrice = Math.ceil(order.price / precision) * precision;
-    
-    const existing = grouped.get(groupedPrice);
-    if (existing) {
-      existing.size += order.size;
-      existing.total += order.total;
-    } else {
-      grouped.set(groupedPrice, {
-        size: order.size,
-        total: order.total,
-      });
-    }
-  });
-
-  // Convert to array, sort ascending (best asks first), take top 10, then reverse for display
-  return Array.from(grouped.entries())
-    .map(([price, data]) => ({
-      price,
-      size: data.size,
-      total: data.total,
-    }))
-    .sort((a, b) => a.price - b.price)
-    .slice(0, 10)
-    .reverse(); // Reverse here once in memoized function, not in render
+  // Calculate running totals
+  let runningTotal = 0;
+  return priceLevels.map(priceLevel => {
+    const size = levelMap.get(priceLevel) || 0;
+    runningTotal += priceLevel * size;
+    return {
+      priceLevel,
+      size,
+      total: runningTotal
+    };
+  }).filter(level => level.size > 0); // Only show levels with volume
 }
 
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
   const [precision, setPrecision] = useState("0.10");
   const precisionValue = parseFloat(precision);
 
-  // Group orders by selected precision
-  const groupedAsks = useMemo(() => {
-    return groupAsksByPrice(data.asks, precisionValue);
-  }, [data.asks, precisionValue]);
+  // Create stable price ladders
+  const { askLadder, bidLadder, maxTotal } = useMemo(() => {
+    const asks = createPriceLadder(data.asks, precisionValue, 'ask', 15);
+    const bids = createPriceLadder(data.bids, precisionValue, 'bid', 15);
+    
+    const max = Math.max(
+      ...asks.map(a => a.total),
+      ...bids.map(b => b.total),
+      1
+    );
 
-  const groupedBids = useMemo(() => {
-    return groupBidsByPrice(data.bids, precisionValue);
-  }, [data.bids, precisionValue]);
-
-  const maxTotal = Math.max(
-    ...groupedBids.map(b => b.total),
-    ...groupedAsks.map(a => a.total),
-    1 // Prevent division by zero
-  );
+    return {
+      askLadder: asks.slice(0, 10).reverse(), // Display highest to lowest
+      bidLadder: bids.slice(0, 10), // Already highest to lowest
+      maxTotal: max
+    };
+  }, [data.asks, data.bids, precisionValue]);
 
   return (
     <Card className="p-4" data-testid="widget-order-book">
@@ -185,21 +176,21 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           <span className="text-right">Total</span>
         </div>
 
-        {/* Asks (Sells) - Red, displayed from highest to lowest (descending) */}
+        {/* Asks (Sells) - Red, highest to lowest */}
         <div className="space-y-1">
-          {groupedAsks.length > 0 ? (
-            groupedAsks.map((ask) => (
+          {askLadder.length > 0 ? (
+            askLadder.map((ask, idx) => (
               <div
-                key={`ask-${ask.price}`}
+                key={`ask-${idx}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-ask-${ask.price}`}
+                data-testid={`orderbook-ask-${ask.priceLevel.toFixed(2)}`}
               >
                 <div
                   className="absolute inset-0 bg-negative/20"
                   style={{ width: `${(ask.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-negative font-medium">
-                  {ask.price.toFixed(2)}
+                  {ask.priceLevel.toFixed(2)}
                 </span>
                 <span className="relative text-right">{ask.size.toFixed(4)}</span>
                 <span className="relative text-right text-muted-foreground">
@@ -223,21 +214,21 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           </div>
         </div>
 
-        {/* Bids (Buys) - Green */}
+        {/* Bids (Buys) - Green, highest to lowest */}
         <div className="space-y-1">
-          {groupedBids.length > 0 ? (
-            groupedBids.map((bid) => (
+          {bidLadder.length > 0 ? (
+            bidLadder.map((bid, idx) => (
               <div
-                key={`bid-${bid.price}`}
+                key={`bid-${idx}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-bid-${bid.price}`}
+                data-testid={`orderbook-bid-${bid.priceLevel.toFixed(2)}`}
               >
                 <div
                   className="absolute inset-0 bg-positive/20"
                   style={{ width: `${(bid.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-positive font-medium">
-                  {bid.price.toFixed(2)}
+                  {bid.priceLevel.toFixed(2)}
                 </span>
                 <span className="relative text-right">{bid.size.toFixed(4)}</span>
                 <span className="relative text-right text-muted-foreground">
