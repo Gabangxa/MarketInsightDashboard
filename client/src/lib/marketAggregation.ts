@@ -13,6 +13,9 @@ export interface AggregatedMarketData {
   bestAsk: number;
 }
 
+// Track historical highs and lows per symbol
+const athTracker = new Map<string, { high: number; low: number }>();
+
 export interface AggregatedOrderBook {
   symbol: string;
   bids: Array<{ price: number; size: number; total: number; exchange?: string }>;
@@ -41,8 +44,25 @@ export function aggregateMarketData(
     return sum + (d.priceChange24h * weight);
   }, 0);
 
-  // Estimate ATH and ATL (in real app, this would come from API)
+  // Track actual ATH and ATL
   const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+  
+  // Get or initialize tracker for this symbol
+  let tracker = athTracker.get(symbol);
+  if (!tracker) {
+    tracker = { high: avgPrice, low: avgPrice };
+    athTracker.set(symbol, tracker);
+  }
+  
+  // Update ATH if current price is higher
+  if (avgPrice > tracker.high) {
+    tracker.high = avgPrice;
+  }
+  
+  // Update ATL if current price is lower
+  if (avgPrice < tracker.low) {
+    tracker.low = avgPrice;
+  }
   
   return {
     symbol,
@@ -50,8 +70,8 @@ export function aggregateMarketData(
     priceChange: avgPrice * (weightedChange / 100),
     priceChangePercent: weightedChange,
     volume24hUSDT: totalVolume,
-    allTimeHigh: avgPrice * 1.15, // Mock: 15% above current
-    allTimeLow: avgPrice * 0.45, // Mock: 55% below current
+    allTimeHigh: tracker.high,
+    allTimeLow: tracker.low,
     exchanges: dataArray.map(d => d.exchange),
     bestBid: Math.max(...prices),
     bestAsk: Math.min(...prices),
