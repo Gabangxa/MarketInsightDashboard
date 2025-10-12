@@ -61,6 +61,12 @@ Preferred communication style: Simple, everyday language.
 - Automatic reconnection logic with exponential backoff
 - Ping/pong heartbeat for Bybit connections
 - Bidirectional communication: client subscribes/unsubscribes to symbols
+- **Stateful Order Book Reconstruction:**
+  - Maintains local Map-based order book state per symbol
+  - Snapshot handling: Initializes full order book from exchange snapshot
+  - Delta handling: Applies incremental updates (size>0 = add/update, size=0 = delete)
+  - Emits complete 50-level order books to clients on every update
+  - State cleared on disconnect/reconnect for data integrity
 
 **API Structure:**
 - RESTful endpoints for CRUD operations:
@@ -88,11 +94,14 @@ Preferred communication style: Simple, everyday language.
 - Real-time ticker data (price, volume, 24h change) and order book depth (bids/asks)
 - Automatic reconnection with 5-second delay on disconnect
 
-**Current Status (as of testing):**
-- Real-time BTC price from Bybit: ~$113,934 (accurate as of Oct 2025)
+**Current Status (as of Oct 12, 2025):**
+- Real-time BTC price from Bybit: ~$113,650 (accurate live data)
 - Data flow: Exchange WebSocket → Backend Manager → Client WebSocket → React State → UI Widgets
-- Order book streaming successfully with delta updates
+- **Order book streaming successfully with complete 50-level depth**
+  - Stateful delta reconstruction ensures all entries have valid size data
+  - Proper handling of Bybit snapshot and delta update protocol
 - Binance temporarily disabled due to geo-blocking (error 451)
+- Bybit order book verified working with real-time delta updates
 
 ### Data Storage Solutions
 
