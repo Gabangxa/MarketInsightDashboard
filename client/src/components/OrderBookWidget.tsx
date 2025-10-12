@@ -38,80 +38,59 @@ const PRECISION_LEVELS = [
   { value: "10.00", label: "$10.00" },
 ];
 
-// Create stable price ladder with fixed levels
-function createPriceLadder(
+// Simple aggregation without fixed grid
+function aggregateOrders(
   orders: OrderBookEntry[],
   precision: number,
-  type: 'bid' | 'ask',
-  count: number = 10
-): Array<{ priceLevel: number; size: number; total: number }> {
-  if (orders.length === 0) return [];
-
-  // Find the best price (highest bid or lowest ask)
-  const bestPrice = type === 'bid' 
-    ? Math.max(...orders.map(o => o.price))
-    : Math.min(...orders.map(o => o.price));
-
-  // Round to precision to get the starting level
-  const startLevel = type === 'bid'
-    ? Math.floor(bestPrice / precision) * precision
-    : Math.ceil(bestPrice / precision) * precision;
-
-  // Create fixed price levels
-  const priceLevels: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const level = type === 'bid'
-      ? startLevel - (i * precision)
-      : startLevel + (i * precision);
-    priceLevels.push(level);
-  }
-
-  // Aggregate orders into fixed price levels
-  const levelMap = new Map<number, number>();
+  type: 'bid' | 'ask'
+): Array<{ price: number; size: number; total: number }> {
+  const priceMap = new Map<number, number>();
   
+  // Group by rounded price
   orders.forEach(order => {
-    // Find which level this order belongs to
-    const orderLevel = type === 'bid'
+    const roundedPrice = type === 'bid'
       ? Math.floor(order.price / precision) * precision
       : Math.ceil(order.price / precision) * precision;
     
-    // Only include if it matches one of our fixed levels
-    if (priceLevels.includes(orderLevel)) {
-      levelMap.set(orderLevel, (levelMap.get(orderLevel) || 0) + order.size);
-    }
+    priceMap.set(roundedPrice, (priceMap.get(roundedPrice) || 0) + order.size);
   });
-
+  
+  // Convert to array and sort
+  const sorted = Array.from(priceMap.entries())
+    .map(([price, size]) => ({ price, size, total: 0 }))
+    .sort((a, b) => type === 'bid' ? b.price - a.price : a.price - b.price);
+  
   // Calculate running totals
   let runningTotal = 0;
-  return priceLevels.map(priceLevel => {
-    const size = levelMap.get(priceLevel) || 0;
-    runningTotal += priceLevel * size;
-    return {
-      priceLevel,
-      size,
-      total: runningTotal
-    };
-  }).filter(level => level.size > 0); // Only show levels with volume
+  sorted.forEach(item => {
+    runningTotal += item.price * item.size;
+    item.total = runningTotal;
+  });
+  
+  return sorted;
 }
 
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
   const [precision, setPrecision] = useState("0.10");
   const precisionValue = parseFloat(precision);
 
-  // Create stable price ladders
-  const { askLadder, bidLadder, maxTotal } = useMemo(() => {
-    const asks = createPriceLadder(data.asks, precisionValue, 'ask', 15);
-    const bids = createPriceLadder(data.bids, precisionValue, 'bid', 15);
+  // Aggregate orders with stable keys
+  const { displayAsks, displayBids, maxTotal } = useMemo(() => {
+    const asks = aggregateOrders(data.asks, precisionValue, 'ask').slice(0, 10);
+    const bids = aggregateOrders(data.bids, precisionValue, 'bid').slice(0, 10);
+    
+    // Reverse asks for display (highest to lowest)
+    const asksReversed = [...asks].reverse();
     
     const max = Math.max(
       ...asks.map(a => a.total),
       ...bids.map(b => b.total),
       1
     );
-
+    
     return {
-      askLadder: asks.slice(0, 10).reverse(), // Display highest to lowest
-      bidLadder: bids.slice(0, 10), // Already highest to lowest
+      displayAsks: asksReversed,
+      displayBids: bids,
       maxTotal: max
     };
   }, [data.asks, data.bids, precisionValue]);
@@ -178,19 +157,19 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
 
         {/* Asks (Sells) - Red, highest to lowest */}
         <div className="space-y-1">
-          {askLadder.length > 0 ? (
-            askLadder.map((ask, idx) => (
+          {displayAsks.length > 0 ? (
+            displayAsks.map((ask) => (
               <div
-                key={`ask-${idx}`}
+                key={`ask-${ask.price.toFixed(2)}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-ask-${ask.priceLevel.toFixed(2)}`}
+                data-testid={`orderbook-ask-${ask.price.toFixed(2)}`}
               >
                 <div
                   className="absolute inset-0 bg-negative/20"
                   style={{ width: `${(ask.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-negative font-medium">
-                  {ask.priceLevel.toFixed(2)}
+                  {ask.price.toFixed(2)}
                 </span>
                 <span className="relative text-right">{ask.size.toFixed(4)}</span>
                 <span className="relative text-right text-muted-foreground">
@@ -216,19 +195,19 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
 
         {/* Bids (Buys) - Green, highest to lowest */}
         <div className="space-y-1">
-          {bidLadder.length > 0 ? (
-            bidLadder.map((bid, idx) => (
+          {displayBids.length > 0 ? (
+            displayBids.map((bid) => (
               <div
-                key={`bid-${idx}`}
+                key={`bid-${bid.price.toFixed(2)}`}
                 className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-bid-${bid.priceLevel.toFixed(2)}`}
+                data-testid={`orderbook-bid-${bid.price.toFixed(2)}`}
               >
                 <div
                   className="absolute inset-0 bg-positive/20"
                   style={{ width: `${(bid.total / maxTotal) * 100}%` }}
                 />
                 <span className="relative text-positive font-medium">
-                  {bid.priceLevel.toFixed(2)}
+                  {bid.price.toFixed(2)}
                 </span>
                 <span className="relative text-right">{bid.size.toFixed(4)}</span>
                 <span className="relative text-right text-muted-foreground">
