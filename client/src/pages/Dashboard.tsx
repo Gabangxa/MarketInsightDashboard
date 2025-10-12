@@ -19,7 +19,9 @@ const mockMarketData = {
   price: 67234.56,
   priceChange: 1234.56,
   priceChangePercent: 1.87,
-  volume: 42500000000,
+  volume24hUSDT: 42500000000,
+  allTimeHigh: 73750.07,
+  allTimeLow: 15760.00,
   exchanges: ["Binance", "Bybit"]
 };
 

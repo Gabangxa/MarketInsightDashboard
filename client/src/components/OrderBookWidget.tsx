@@ -32,14 +32,28 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
   return (
     <Card className="p-4" data-testid="widget-order-book">
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Order Book - {data.symbol}
-          </h3>
-          {data.exchanges.length > 1 && (
-            <span className="text-xs px-2 py-0.5 bg-muted rounded-md text-muted-foreground">
-              Aggregated
-            </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Order Book - {data.symbol}
+            </h3>
+            {data.exchanges.length > 1 && (
+              <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-md font-medium">
+                Aggregated
+              </span>
+            )}
+          </div>
+          {data.exchanges.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {data.exchanges.map((exchange) => (
+                <span
+                  key={exchange}
+                  className="text-xs px-1.5 py-0.5 bg-accent/50 rounded-md text-accent-foreground"
+                >
+                  {exchange}
+                </span>
+              ))}
+            </div>
           )}
         </div>
         <Button

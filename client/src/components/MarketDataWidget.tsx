@@ -9,7 +9,9 @@ export interface MarketData {
   price: number;
   priceChange: number;
   priceChangePercent: number;
-  volume: number;
+  volume24hUSDT: number;
+  allTimeHigh: number;
+  allTimeLow: number;
   exchanges: string[];
 }
 
@@ -74,11 +76,23 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
           </div>
         </div>
 
-        <div className="pt-3 border-t border-border">
+        <div className="pt-3 border-t border-border space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">24h Volume</span>
+            <span className="text-xs text-muted-foreground">24h Volume (USDT)</span>
             <span className="text-sm font-mono font-medium">
-              ${(data.volume / 1_000_000).toFixed(2)}M
+              ${(data.volume24hUSDT / 1_000_000).toFixed(2)}M
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">All-Time High</span>
+            <span className="text-sm font-mono font-medium text-positive">
+              ${data.allTimeHigh.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">All-Time Low</span>
+            <span className="text-sm font-mono font-medium text-negative">
+              ${data.allTimeLow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
