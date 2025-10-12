@@ -220,9 +220,11 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
                 <span className="relative text-negative font-medium">
                   {ask.price.toFixed(2)}
                 </span>
-                <span className="relative text-right">{ask.size.toFixed(4)}</span>
+                <span className="relative text-right">
+                  {ask.size > 0 ? ask.size.toFixed(4) : '-'}
+                </span>
                 <span className="relative text-right text-muted-foreground">
-                  {ask.total.toFixed(2)}
+                  {ask.total > 0 ? ask.total.toFixed(2) : '-'}
                 </span>
               </div>
             ))
@@ -258,9 +260,11 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
                 <span className="relative text-positive font-medium">
                   {bid.price.toFixed(2)}
                 </span>
-                <span className="relative text-right">{bid.size.toFixed(4)}</span>
+                <span className="relative text-right">
+                  {bid.size > 0 ? bid.size.toFixed(4) : '-'}
+                </span>
                 <span className="relative text-right text-muted-foreground">
-                  {bid.total.toFixed(2)}
+                  {bid.total > 0 ? bid.total.toFixed(2) : '-'}
                 </span>
               </div>
             ))

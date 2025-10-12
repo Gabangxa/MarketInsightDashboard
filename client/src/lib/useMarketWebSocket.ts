@@ -43,6 +43,10 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const subscriptionsRef = useRef<Map<string, string[]>>(new Map()); // symbol -> exchanges
+  
+  // Throttle order book updates with fixed interval
+  const orderBookThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingOrderBookUpdatesRef = useRef<OrderBookData[]>([]);
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -80,13 +84,31 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
           });
         } else if (message.type === "orderBook") {
           const data: OrderBookData = message.data;
-          setOrderBooks(prev => {
-            const newMap = new Map(prev);
-            const symbolData = newMap.get(data.symbol) || new Map();
-            symbolData.set(data.exchange, data);
-            newMap.set(data.symbol, symbolData);
-            return newMap;
-          });
+          
+          // Add to pending updates queue
+          pendingOrderBookUpdatesRef.current.push(data);
+          
+          // Start throttle interval if not already running
+          if (!orderBookThrottleRef.current) {
+            orderBookThrottleRef.current = setInterval(() => {
+              const updates = pendingOrderBookUpdatesRef.current;
+              if (updates.length === 0) return;
+              
+              // Clear queue
+              pendingOrderBookUpdatesRef.current = [];
+              
+              // Apply all pending updates using functional setState
+              setOrderBooks(prev => {
+                const newMap = new Map(prev);
+                updates.forEach(update => {
+                  const symbolData = newMap.get(update.symbol) || new Map();
+                  symbolData.set(update.exchange, update);
+                  newMap.set(update.symbol, symbolData);
+                });
+                return newMap;
+              });
+            }, 300);
+          }
         } else if (message.type === "webhook") {
           const data: WebhookMessage = message.data;
           setNewWebhook(data);
@@ -104,6 +126,12 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
       console.log("WebSocket disconnected, reconnecting...");
       setIsConnected(false);
       
+      // Clear throttle interval
+      if (orderBookThrottleRef.current) {
+        clearInterval(orderBookThrottleRef.current);
+        orderBookThrottleRef.current = null;
+      }
+      
       // Reconnect after 3 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
@@ -117,6 +145,9 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (orderBookThrottleRef.current) {
+        clearInterval(orderBookThrottleRef.current);
       }
       if (wsRef.current) {
         wsRef.current.close();
