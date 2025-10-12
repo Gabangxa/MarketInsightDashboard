@@ -1,7 +1,15 @@
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface OrderBookEntry {
   price: number;
@@ -23,10 +31,63 @@ interface OrderBookWidgetProps {
   onConfigure?: () => void;
 }
 
+// Price grouping levels
+const PRECISION_LEVELS = [
+  { value: "0.01", label: "$0.01" },
+  { value: "0.10", label: "$0.10" },
+  { value: "1.00", label: "$1.00" },
+  { value: "10.00", label: "$10.00" },
+];
+
+function groupOrdersByPrice(
+  orders: OrderBookEntry[],
+  precision: number
+): OrderBookEntry[] {
+  const grouped = new Map<number, { size: number; total: number }>();
+
+  orders.forEach((order) => {
+    // Round price to precision level
+    const groupedPrice = Math.floor(order.price / precision) * precision;
+    
+    const existing = grouped.get(groupedPrice);
+    if (existing) {
+      existing.size += order.size;
+      existing.total += order.total;
+    } else {
+      grouped.set(groupedPrice, {
+        size: order.size,
+        total: order.total,
+      });
+    }
+  });
+
+  // Convert back to array and sort
+  return Array.from(grouped.entries())
+    .map(([price, data]) => ({
+      price,
+      size: data.size,
+      total: data.total,
+    }))
+    .sort((a, b) => b.price - a.price); // Descending order
+}
+
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
+  const [precision, setPrecision] = useState("0.10");
+  const precisionValue = parseFloat(precision);
+
+  // Group orders by selected precision
+  const groupedAsks = useMemo(() => {
+    return groupOrdersByPrice(data.asks, precisionValue).slice(0, 10); // Limit to 10 levels
+  }, [data.asks, precisionValue]);
+
+  const groupedBids = useMemo(() => {
+    return groupOrdersByPrice(data.bids, precisionValue).slice(0, 10); // Limit to 10 levels
+  }, [data.bids, precisionValue]);
+
   const maxTotal = Math.max(
-    ...data.bids.map(b => b.total),
-    ...data.asks.map(a => a.total)
+    ...groupedBids.map(b => b.total),
+    ...groupedAsks.map(a => a.total),
+    1 // Prevent division by zero
   );
 
   return (
@@ -56,35 +117,64 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
             </div>
           )}
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onConfigure}
-          className="h-6 w-6"
-          data-testid="button-configure-orderbook"
-        >
-          <Settings className="h-3 w-3" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={precision} onValueChange={setPrecision}>
+            <SelectTrigger className="h-6 w-20 text-xs" data-testid="select-precision">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRECISION_LEVELS.map((level) => (
+                <SelectItem key={level.value} value={level.value}>
+                  {level.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onConfigure}
+            className="h-6 w-6"
+            data-testid="button-configure-orderbook"
+          >
+            <Settings className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
-        {/* Asks (Sells) */}
+        {/* Column Headers */}
+        <div className="grid grid-cols-3 text-xs text-muted-foreground">
+          <span>Price (USD)</span>
+          <span className="text-right">Size</span>
+          <span className="text-right">Total</span>
+        </div>
+
+        {/* Asks (Sells) - Red */}
         <div className="space-y-1">
-          {[...data.asks].reverse().map((ask, idx) => (
-            <div
-              key={`ask-${idx}`}
-              className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-              data-testid={`orderbook-ask-${idx}`}
-            >
+          {groupedAsks.length > 0 ? (
+            [...groupedAsks].reverse().map((ask) => (
               <div
-                className="absolute inset-0 bg-negative/20"
-                style={{ width: `${(ask.total / maxTotal) * 100}%` }}
-              />
-              <span className="relative text-negative font-medium">{ask.price.toFixed(2)}</span>
-              <span className="relative text-right">{ask.size.toFixed(4)}</span>
-              <span className="relative text-right text-muted-foreground">{ask.total.toFixed(2)}</span>
-            </div>
-          ))}
+                key={`ask-${ask.price}`}
+                className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                data-testid={`orderbook-ask-${ask.price}`}
+              >
+                <div
+                  className="absolute inset-0 bg-negative/20"
+                  style={{ width: `${(ask.total / maxTotal) * 100}%` }}
+                />
+                <span className="relative text-negative font-medium">
+                  {ask.price.toFixed(2)}
+                </span>
+                <span className="relative text-right">{ask.size.toFixed(4)}</span>
+                <span className="relative text-right text-muted-foreground">
+                  {ask.total.toFixed(2)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground text-center py-2">No asks</div>
+          )}
         </div>
 
         {/* Spread */}
@@ -98,30 +188,31 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           </div>
         </div>
 
-        {/* Bids (Buys) */}
+        {/* Bids (Buys) - Green */}
         <div className="space-y-1">
-          {data.bids.map((bid, idx) => (
-            <div
-              key={`bid-${idx}`}
-              className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-              data-testid={`orderbook-bid-${idx}`}
-            >
+          {groupedBids.length > 0 ? (
+            groupedBids.map((bid) => (
               <div
-                className="absolute inset-0 bg-positive/20"
-                style={{ width: `${(bid.total / maxTotal) * 100}%` }}
-              />
-              <span className="relative text-positive font-medium">{bid.price.toFixed(2)}</span>
-              <span className="relative text-right">{bid.size.toFixed(4)}</span>
-              <span className="relative text-right text-muted-foreground">{bid.total.toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Column Headers */}
-        <div className="grid grid-cols-3 text-xs text-muted-foreground border-t border-border pt-2">
-          <span>Price (USD)</span>
-          <span className="text-right">Size</span>
-          <span className="text-right">Total</span>
+                key={`bid-${bid.price}`}
+                className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                data-testid={`orderbook-bid-${bid.price}`}
+              >
+                <div
+                  className="absolute inset-0 bg-positive/20"
+                  style={{ width: `${(bid.total / maxTotal) * 100}%` }}
+                />
+                <span className="relative text-positive font-medium">
+                  {bid.price.toFixed(2)}
+                </span>
+                <span className="relative text-right">{bid.size.toFixed(4)}</span>
+                <span className="relative text-right text-muted-foreground">
+                  {bid.total.toFixed(2)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground text-center py-2">No bids</div>
+          )}
         </div>
       </div>
     </Card>
