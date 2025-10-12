@@ -30,9 +30,10 @@ export class ExchangeWebSocketManager extends EventEmitter {
   }
 
   subscribeToSymbol(symbol: string, exchanges: string[]) {
-    if (exchanges.includes("Binance")) {
-      this.connectBinance(symbol);
-    }
+    // Temporarily disable Binance due to 451 geo-blocking
+    // if (exchanges.includes("Binance")) {
+    //   this.connectBinance(symbol);
+    // }
     if (exchanges.includes("Bybit")) {
       this.connectBybit(symbol);
     }
@@ -42,13 +43,44 @@ export class ExchangeWebSocketManager extends EventEmitter {
   }
 
   unsubscribeFromSymbol(symbol: string) {
-    // Close specific connections for the symbol
+    // Close Binance connection
     const binanceKey = `binance-${symbol}`;
-    const ws = this.binanceConnections.get(binanceKey);
-    if (ws) {
-      ws.close();
+    const binanceWs = this.binanceConnections.get(binanceKey);
+    if (binanceWs) {
+      binanceWs.close();
       this.binanceConnections.delete(binanceKey);
     }
+
+    // Close Bybit connection and clear ping interval
+    const bybitKey = `bybit-${symbol}`;
+    const bybitWs = this.bybitConnections.get(bybitKey);
+    if (bybitWs) {
+      bybitWs.close();
+      this.bybitConnections.delete(bybitKey);
+      
+      const pingInterval = this.bybitPingIntervals.get(bybitKey);
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        this.bybitPingIntervals.delete(bybitKey);
+      }
+    }
+
+    // Close OKX connection
+    const okxKey = `okx-${symbol}`;
+    const okxWs = this.okxConnections.get(okxKey);
+    if (okxWs) {
+      okxWs.close();
+      this.okxConnections.delete(okxKey);
+    }
+
+    // Clear any scheduled reconnections for this symbol
+    [binanceKey, bybitKey, okxKey].forEach(key => {
+      const timeout = this.reconnectTimeouts.get(key);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.reconnectTimeouts.delete(key);
+      }
+    });
   }
 
   private connectBinance(symbol: string) {
@@ -133,10 +165,12 @@ export class ExchangeWebSocketManager extends EventEmitter {
       console.log(`[Bybit] Connected for ${symbol}`);
       
       // Subscribe to ticker and orderbook
-      ws.send(JSON.stringify({
+      // Bybit V5 WebSocket spot topics: tickers.BTCUSDT, orderbook.50.BTCUSDT
+      const subscribeMsg = {
         op: "subscribe",
-        args: [`tickers.${symbol}`, `orderbook.5.${symbol}`]
-      }));
+        args: [`tickers.${symbol}`, `orderbook.50.${symbol}`]
+      };
+      ws.send(JSON.stringify(subscribeMsg));
 
       // Start ping interval for this connection
       const pingInterval = setInterval(() => {
@@ -220,6 +254,7 @@ export class ExchangeWebSocketManager extends EventEmitter {
           { channel: "books5", instId }
         ]
       }));
+      console.log(`[OKX] Subscribed to ${instId}`);
     });
 
     ws.on("message", (data: WebSocket.Data) => {

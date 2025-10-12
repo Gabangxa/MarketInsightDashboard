@@ -23,7 +23,8 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
-  const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Binance", "Bybit"]);
+  // Note: Binance is currently geo-blocked, using Bybit only
+  const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
 
   // WebSocket connection
   const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
@@ -103,6 +104,18 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
     },
   });
+
+  // Handle new webhooks from WebSocket
+  useEffect(() => {
+    if (newWebhook) {
+      queryClient.setQueryData<WebhookMessage[]>(["/api/webhooks"], (old = []) => {
+        // Check if webhook already exists to prevent duplicates
+        if (old.some(w => w.id === newWebhook.id)) return old;
+        // Add new webhook at the beginning (newest first)
+        return [newWebhook, ...old];
+      });
+    }
+  }, [newWebhook]);
 
   // Subscribe to symbols on watchlist
   useEffect(() => {
@@ -186,6 +199,11 @@ export default function Dashboard() {
 
   const handleSelectToken = (symbol: string) => {
     setSelectedSymbol(symbol);
+    // Update selected exchanges to match the token's configured exchanges
+    const token = watchlistTokens.find(t => t.symbol === symbol);
+    if (token && token.exchanges) {
+      setSelectedExchanges(token.exchanges as string[]);
+    }
   };
 
   return (
@@ -218,11 +236,10 @@ export default function Dashboard() {
           breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
           cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
           rowHeight={80}
-          isDraggable={true}
+          isDraggable={false}
           isResizable={true}
-          draggableHandle=".drag-handle"
         >
-          <div key="watchlist-1" className="drag-handle cursor-move">
+          <div key="watchlist-1">
             <WatchlistWidget
               tokens={watchlistData}
               selectedSymbol={selectedSymbol}
@@ -234,7 +251,7 @@ export default function Dashboard() {
               onSelectToken={handleSelectToken}
             />
           </div>
-          <div key="market-1" className="drag-handle cursor-move">
+          <div key="market-1">
             <MarketDataWidget
               data={aggregatedMarketData || {
                 symbol: selectedSymbol,
@@ -249,7 +266,7 @@ export default function Dashboard() {
               onConfigure={() => console.log('Configure market widget')}
             />
           </div>
-          <div key="orderbook-1" className="drag-handle cursor-move">
+          <div key="orderbook-1">
             <OrderBookWidget
               data={aggregatedOrderBook || {
                 symbol: selectedSymbol,
@@ -262,7 +279,7 @@ export default function Dashboard() {
               onConfigure={() => console.log('Configure orderbook widget')}
             />
           </div>
-          <div key="webhook-1" className="drag-handle cursor-move">
+          <div key="webhook-1">
             <WebhookWidget
               messages={webhookMessages.map(wh => ({
                 ...wh,
@@ -276,7 +293,7 @@ export default function Dashboard() {
               }}
             />
           </div>
-          <div key="alerts-1" className="drag-handle cursor-move">
+          <div key="alerts-1">
             <AlertsWidget
               alerts={alerts.map(a => ({
                 id: a.id,
@@ -299,7 +316,12 @@ export default function Dashboard() {
         isOpen={isAlertPanelOpen}
         onClose={() => setIsAlertPanelOpen(false)}
         onSave={(config) => {
-          addAlertMutation.mutate(config);
+          // Ensure value is string for backend decimal type
+          const alertData = {
+            ...config,
+            ...(config.value !== undefined && { value: String(config.value) })
+          };
+          addAlertMutation.mutate(alertData);
         }}
       />
     </div>

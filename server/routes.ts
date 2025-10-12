@@ -132,6 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/alerts", async (req, res) => {
     try {
+      console.log("POST /api/alerts body:", JSON.stringify(req.body, null, 2));
       const validated = insertAlertSchema.parse(req.body);
       const alert = await storage.createAlert({
         ...validated,
@@ -139,6 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json(alert);
     } catch (error) {
+      console.error("Alert validation error:", error);
       res.status(400).json({ error: "Invalid alert data" });
     }
   });

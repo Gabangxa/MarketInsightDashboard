@@ -42,6 +42,7 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   const [newWebhook, setNewWebhook] = useState<WebhookMessage | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const subscriptionsRef = useRef<Map<string, string[]>>(new Map()); // symbol -> exchanges
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -53,6 +54,15 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
     ws.onopen = () => {
       console.log("WebSocket connected");
       setIsConnected(true);
+      
+      // Re-subscribe to all symbols after reconnection
+      subscriptionsRef.current.forEach((exchanges, symbol) => {
+        ws.send(JSON.stringify({
+          type: "subscribe",
+          symbol,
+          exchanges,
+        }));
+      });
     };
 
     ws.onmessage = (event) => {
@@ -115,6 +125,9 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   }, [connect]);
 
   const subscribe = useCallback((symbol: string, exchanges: string[]) => {
+    // Store subscription for reconnection
+    subscriptionsRef.current.set(symbol, exchanges);
+    
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "subscribe",
@@ -125,6 +138,8 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   }, []);
 
   const unsubscribe = useCallback((symbol: string) => {
+    subscriptionsRef.current.delete(symbol);
+    
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "unsubscribe",

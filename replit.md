@@ -78,11 +78,21 @@ Preferred communication style: Simple, everyday language.
 
 **Exchange Integration:**
 - Direct WebSocket connections to public APIs:
-  - Binance: `wss://stream.binance.com:9443`
-  - Bybit: `wss://stream.bybit.com`
-  - OKX: `wss://ws.okx.com:8443`
+  - **Binance**: ❌ Blocked (451 geo-restriction from Replit servers) - `wss://stream.binance.com:9443`
+  - **Bybit**: ✅ Working - `wss://stream.bybit.com/v5/public/spot`
+    - Ticker topic: `tickers.BTCUSDT`
+    - Order book topic: `orderbook.50.BTCUSDT`
+    - Requires ping/pong heartbeat every 20 seconds
+  - **OKX**: ⏳ Configured - `wss://ws.okx.com:8443/ws/v5/public`
 - Normalized data format across exchanges
-- Real-time ticker data and order book depth
+- Real-time ticker data (price, volume, 24h change) and order book depth (bids/asks)
+- Automatic reconnection with 5-second delay on disconnect
+
+**Current Status (as of testing):**
+- Real-time BTC price from Bybit: ~$113,934 (accurate as of Oct 2025)
+- Data flow: Exchange WebSocket → Backend Manager → Client WebSocket → React State → UI Widgets
+- Order book streaming successfully with delta updates
+- Binance temporarily disabled due to geo-blocking (error 451)
 
 ### Data Storage Solutions
 

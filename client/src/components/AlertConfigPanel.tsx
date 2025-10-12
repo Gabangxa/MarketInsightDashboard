@@ -16,8 +16,9 @@ export interface AlertConfig {
   id: string;
   type: "price" | "keyword";
   exchanges: string[];
+  symbol?: string;
   condition?: string;
-  value?: number;
+  value?: string;
   keyword?: string;
 }
 
@@ -32,6 +33,7 @@ const EXCHANGES = ["Binance", "Bybit", "OKX"];
 export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfigPanelProps) {
   const [alertType, setAlertType] = useState<"price" | "keyword">("price");
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
+  const [symbol, setSymbol] = useState("BTCUSDT");
   const [condition, setCondition] = useState(">");
   const [value, setValue] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -45,11 +47,32 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
   };
 
   const handleSave = () => {
-    const config: AlertConfig = {
-      id: `alert-${Date.now()}`,
+    // Validation
+    if (selectedExchanges.length === 0) {
+      alert("Please select at least one exchange");
+      return;
+    }
+
+    if (alertType === "price") {
+      if (!symbol.trim()) {
+        alert("Please enter a symbol");
+        return;
+      }
+      if (!value.trim() || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
+        alert("Please enter a valid positive number for price value");
+        return;
+      }
+    } else {
+      if (!keyword.trim()) {
+        alert("Please enter a keyword");
+        return;
+      }
+    }
+
+    const config: any = {
       type: alertType,
       exchanges: selectedExchanges,
-      ...(alertType === "price" ? { condition, value: parseFloat(value) } : { keyword })
+      ...(alertType === "price" ? { symbol, condition, value: value } : { keyword })
     };
     onSave?.(config);
     onClose();
@@ -115,6 +138,19 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
 
           {alertType === "price" ? (
             <div className="space-y-4">
+              <div>
+                <Label htmlFor="symbol" className="text-sm font-medium mb-2 block">
+                  Symbol
+                </Label>
+                <Input
+                  id="symbol"
+                  placeholder="e.g. BTCUSDT"
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  data-testid="input-symbol"
+                />
+              </div>
+
               <div>
                 <Label htmlFor="condition" className="text-sm font-medium mb-2 block">
                   Condition
