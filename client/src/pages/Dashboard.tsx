@@ -187,14 +187,39 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
-  const [layouts] = useState<{ lg: Layout[] }>({
+  // Optimized "best fit" layout for trading dashboard
+  // Large screens: 3-column layout (Watchlist | Market+OrderBook | Webhooks+Alerts)
+  // Medium screens: 2-column layout with stacking
+  // Small screens: Single column, full width widgets
+  const [layouts] = useState({
     lg: [
-      { i: "watchlist-1", x: 0, y: 0, w: 3, h: 6, minW: 3, minH: 4 },
-      { i: "market-1", x: 3, y: 0, w: 3, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 6, y: 0, w: 3, h: 3, minW: 3, minH: 3 },
-      { i: "webhook-1", x: 9, y: 0, w: 3, h: 6, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 3, y: 3, w: 6, h: 3, minW: 4, minH: 2 },
-    ]
+      // Watchlist: Left sidebar, full height
+      { i: "watchlist-1", x: 0, y: 0, w: 3, h: 8, minW: 3, minH: 4 },
+      // Market Data: Top center, compact
+      { i: "market-1", x: 3, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
+      // Order Book: Below market data, taller for full bid/ask display
+      { i: "orderbook-1", x: 3, y: 3, w: 4, h: 5, minW: 3, minH: 4 },
+      // Webhook Messages: Right column, tall
+      { i: "webhook-1", x: 7, y: 0, w: 5, h: 5, minW: 3, minH: 4 },
+      // Alerts: Bottom right, compact
+      { i: "alerts-1", x: 7, y: 5, w: 5, h: 3, minW: 4, minH: 2 },
+    ],
+    md: [
+      // Medium screens: 2-column layout
+      { i: "watchlist-1", x: 0, y: 0, w: 5, h: 6, minW: 3, minH: 4 },
+      { i: "market-1", x: 5, y: 0, w: 5, h: 3, minW: 3, minH: 2 },
+      { i: "orderbook-1", x: 5, y: 3, w: 5, h: 5, minW: 3, minH: 4 },
+      { i: "webhook-1", x: 0, y: 6, w: 5, h: 5, minW: 3, minH: 4 },
+      { i: "alerts-1", x: 5, y: 8, w: 5, h: 3, minW: 4, minH: 2 },
+    ],
+    sm: [
+      // Small screens: Single column, prioritize trading widgets
+      { i: "market-1", x: 0, y: 0, w: 6, h: 3, minW: 3, minH: 2 },
+      { i: "orderbook-1", x: 0, y: 3, w: 6, h: 5, minW: 3, minH: 4 },
+      { i: "watchlist-1", x: 0, y: 8, w: 6, h: 6, minW: 3, minH: 4 },
+      { i: "alerts-1", x: 0, y: 14, w: 6, h: 3, minW: 4, minH: 2 },
+      { i: "webhook-1", x: 0, y: 17, w: 6, h: 5, minW: 3, minH: 4 },
+    ],
   });
 
   const handleSelectToken = (symbol: string) => {

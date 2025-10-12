@@ -34,6 +34,14 @@ Preferred communication style: Simple, everyday language.
   - Alerts Widget: Price and keyword alert configuration
   - Webhook Widget: External message monitoring with filtering
 - Responsive grid layout with persistent positioning via database storage
+- **Optimized "Best Fit" Default Layout:**
+  - Large screens (1200px+): 3-column trading terminal layout
+    - Left: Watchlist sidebar (full height)
+    - Center: Market Data + Order Book (stacked, order book taller for full bid/ask display)
+    - Right: Webhook Messages + Alerts (stacked)
+  - Medium screens (996-1199px): 2-column responsive layout
+  - Small screens (<996px): Single column mobile-optimized layout
+  - Order Book increased to 5 rows (400px) for complete spread visualization
 
 **Real-Time Data Flow:**
 - WebSocket connection to backend (`/ws` endpoint)
