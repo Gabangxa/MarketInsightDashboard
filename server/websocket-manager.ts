@@ -18,12 +18,21 @@ export interface OrderBookData {
   timestamp: number;
 }
 
+// Local order book state for Bybit (maintains full snapshot + applies deltas)
+interface OrderBookState {
+  bids: Map<number, number>; // price -> size
+  asks: Map<number, number>; // price -> size
+}
+
 export class ExchangeWebSocketManager extends EventEmitter {
   private binanceConnections: Map<string, WebSocket> = new Map();
   private bybitConnections: Map<string, WebSocket> = new Map();
   private okxConnections: Map<string, WebSocket> = new Map();
   private bybitPingIntervals: Map<string, NodeJS.Timeout> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  
+  // Maintain local order book state for Bybit
+  private bybitOrderBooks: Map<string, OrderBookState> = new Map();
 
   constructor() {
     super();
@@ -198,14 +207,80 @@ export class ExchangeWebSocketManager extends EventEmitter {
           this.emit("marketData", marketData);
         } else if (message.topic && message.topic.startsWith("orderbook.")) {
           const obData = message.data;
-          const orderBook: OrderBookData = {
-            exchange: "Bybit",
-            symbol: obData.s,
-            bids: obData.b.map((b: string[]) => [parseFloat(b[0]), parseFloat(b[1])]),
-            asks: obData.a.map((a: string[]) => [parseFloat(a[0]), parseFloat(a[1])]),
-            timestamp: Date.now(),
-          };
-          this.emit("orderBook", orderBook);
+          const bookKey = `${symbol}`;
+          
+          // Initialize order book state if not exists
+          if (!this.bybitOrderBooks.has(bookKey)) {
+            this.bybitOrderBooks.set(bookKey, {
+              bids: new Map(),
+              asks: new Map()
+            });
+          }
+          
+          const bookState = this.bybitOrderBooks.get(bookKey)!;
+          
+          // Handle snapshot (initial full book)
+          if (message.type === "snapshot") {
+            console.log("[Bybit] Received snapshot for", symbol);
+            bookState.bids.clear();
+            bookState.asks.clear();
+            
+            obData.b.forEach((b: string[]) => {
+              const price = parseFloat(b[0]);
+              const size = parseFloat(b[1]);
+              if (size > 0) bookState.bids.set(price, size);
+            });
+            
+            obData.a.forEach((a: string[]) => {
+              const price = parseFloat(a[0]);
+              const size = parseFloat(a[1]);
+              if (size > 0) bookState.asks.set(price, size);
+            });
+          } else {
+            // Handle delta update
+            obData.b.forEach((b: string[]) => {
+              const price = parseFloat(b[0]);
+              const size = parseFloat(b[1]);
+              if (size > 0) {
+                bookState.bids.set(price, size);
+              } else {
+                bookState.bids.delete(price); // size=0 means delete
+              }
+            });
+            
+            obData.a.forEach((a: string[]) => {
+              const price = parseFloat(a[0]);
+              const size = parseFloat(a[1]);
+              if (size > 0) {
+                bookState.asks.set(price, size);
+              } else {
+                bookState.asks.delete(price); // size=0 means delete
+              }
+            });
+          }
+          
+          // Convert to sorted arrays (best prices first)
+          const bids = Array.from(bookState.bids.entries())
+            .sort(([a], [b]) => b - a) // Bids: highest first
+            .slice(0, 50) // Top 50 levels
+            .map(([price, size]) => [price, size] as [number, number]);
+          
+          const asks = Array.from(bookState.asks.entries())
+            .sort(([a], [b]) => a - b) // Asks: lowest first
+            .slice(0, 50) // Top 50 levels
+            .map(([price, size]) => [price, size] as [number, number]);
+          
+          // Emit full reconstructed book
+          if (bids.length > 0 || asks.length > 0) {
+            const orderBook: OrderBookData = {
+              exchange: "Bybit",
+              symbol: obData.s,
+              bids,
+              asks,
+              timestamp: Date.now(),
+            };
+            this.emit("orderBook", orderBook);
+          }
         }
       } catch (error) {
         console.error("[Bybit] Message parse error:", error);
@@ -224,6 +299,8 @@ export class ExchangeWebSocketManager extends EventEmitter {
         this.bybitPingIntervals.delete(key);
       }
       this.bybitConnections.delete(key);
+      // Clear order book state on disconnect
+      this.bybitOrderBooks.delete(symbol);
       this.scheduleReconnect(`bybit-${symbol}`, () => this.connectBybit(symbol));
     });
   }
