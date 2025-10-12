@@ -7,6 +7,7 @@ import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
 import AlertsWidget from "@/components/AlertsWidget";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
+import WatchlistWidget from "@/components/WatchlistWidget";
 import { Toaster } from "react-hot-toast";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -96,13 +97,66 @@ export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
   const [webhookMessages, setWebhookMessages] = useState(mockWebhookMessages);
   const [alerts, setAlerts] = useState(mockAlerts);
+  
+  //todo: remove mock functionality - watchlist state
+  const [watchlistTokens, setWatchlistTokens] = useState([
+    { symbol: "BTCUSDT", price: 67234.56, change24h: 1.87, volume24h: 42500000000, change7d: 5.23 },
+    { symbol: "ETHUSDT", price: 3245.78, change24h: -0.45, volume24h: 18300000000, change7d: 3.12 },
+    { symbol: "BNBUSDT", price: 612.34, change24h: 2.15, volume24h: 1200000000, change7d: -1.89 }
+  ]);
+  const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
+  
+  //todo: remove mock functionality - generate market data based on selected symbol
+  const getMarketDataForSymbol = (symbol: string) => {
+    const token = watchlistTokens.find(t => t.symbol === symbol);
+    if (!token) return mockMarketData;
+    
+    return {
+      symbol: token.symbol,
+      price: token.price,
+      priceChange: token.price * (token.change24h / 100),
+      priceChangePercent: token.change24h,
+      volume24hUSDT: token.volume24h,
+      allTimeHigh: token.price * 1.15,
+      allTimeLow: token.price * 0.45,
+      exchanges: ["Binance", "Bybit"]
+    };
+  };
+  
+  //todo: remove mock functionality - generate orderbook data based on selected symbol
+  const getOrderBookForSymbol = (symbol: string) => {
+    const token = watchlistTokens.find(t => t.symbol === symbol);
+    const basePrice = token?.price || 67234.56;
+    
+    return {
+      symbol: symbol,
+      bids: [
+        { price: basePrice - 4.5, size: 0.5234, total: 35186.12 },
+        { price: basePrice - 5.0, size: 1.2341, total: 82965.83 },
+        { price: basePrice - 5.5, size: 0.8765, total: 58921.47 },
+        { price: basePrice - 6.0, size: 2.1234, total: 142743.22 },
+        { price: basePrice - 6.5, size: 0.4567, total: 30695.52 },
+      ],
+      asks: [
+        { price: basePrice + 0.5, size: 0.6543, total: 43995.71 },
+        { price: basePrice + 1.0, size: 1.4321, total: 96290.37 },
+        { price: basePrice + 1.5, size: 0.9876, total: 66398.13 },
+        { price: basePrice + 2.0, size: 2.3456, total: 157715.79 },
+        { price: basePrice + 2.5, size: 0.5678, total: 38172.27 },
+      ],
+      spread: 5.00,
+      spreadPercent: 0.007,
+      exchanges: ["Binance", "Bybit", "OKX"]
+    };
+  };
 
   const [layouts] = useState<{ lg: Layout[] }>({
     lg: [
-      { i: "market-1", x: 0, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 4, y: 0, w: 4, h: 3, minW: 3, minH: 3 },
-      { i: "webhook-1", x: 8, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 0, y: 3, w: 8, h: 3, minW: 4, minH: 2 },
+      { i: "watchlist-1", x: 0, y: 0, w: 3, h: 6, minW: 3, minH: 4 },
+      { i: "market-1", x: 3, y: 0, w: 3, h: 3, minW: 3, minH: 2 },
+      { i: "orderbook-1", x: 6, y: 0, w: 3, h: 3, minW: 3, minH: 3 },
+      { i: "webhook-1", x: 9, y: 0, w: 3, h: 6, minW: 3, minH: 4 },
+      { i: "alerts-1", x: 3, y: 3, w: 6, h: 3, minW: 4, minH: 2 },
     ]
   });
 
@@ -114,6 +168,27 @@ export default function Dashboard() {
 
   const handleDeleteAlert = (id: string) => {
     setAlerts(prev => prev.filter(alert => alert.id !== id));
+  };
+  
+  const handleAddWatchlistToken = (symbol: string) => {
+    if (!watchlistTokens.find(t => t.symbol === symbol) && watchlistTokens.length < 10) {
+      //todo: remove mock functionality - generate random data for new token
+      setWatchlistTokens(prev => [...prev, {
+        symbol,
+        price: Math.random() * 1000 + 100,
+        change24h: (Math.random() - 0.5) * 10,
+        volume24h: Math.random() * 10000000000,
+        change7d: (Math.random() - 0.5) * 20
+      }]);
+    }
+  };
+  
+  const handleRemoveWatchlistToken = (symbol: string) => {
+    setWatchlistTokens(prev => prev.filter(t => t.symbol !== symbol));
+  };
+  
+  const handleSelectToken = (symbol: string) => {
+    setSelectedSymbol(symbol);
   };
 
   return (
@@ -147,15 +222,24 @@ export default function Dashboard() {
           isResizable={true}
           draggableHandle=".drag-handle"
         >
+          <div key="watchlist-1" className="drag-handle cursor-move">
+            <WatchlistWidget
+              tokens={watchlistTokens}
+              selectedSymbol={selectedSymbol}
+              onAddToken={handleAddWatchlistToken}
+              onRemoveToken={handleRemoveWatchlistToken}
+              onSelectToken={handleSelectToken}
+            />
+          </div>
           <div key="market-1" className="drag-handle cursor-move">
             <MarketDataWidget
-              data={mockMarketData}
+              data={getMarketDataForSymbol(selectedSymbol)}
               onConfigure={() => console.log('Configure market widget')}
             />
           </div>
           <div key="orderbook-1" className="drag-handle cursor-move">
             <OrderBookWidget
-              data={mockOrderBook}
+              data={getOrderBookForSymbol(selectedSymbol)}
               onConfigure={() => console.log('Configure orderbook widget')}
             />
           </div>
