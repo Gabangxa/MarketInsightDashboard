@@ -39,14 +39,14 @@ const PRECISION_LEVELS = [
   { value: "10.00", label: "$10.00" },
 ];
 
-function groupOrdersByPrice(
+function groupBidsByPrice(
   orders: OrderBookEntry[],
   precision: number
 ): OrderBookEntry[] {
   const grouped = new Map<number, { size: number; total: number }>();
 
   orders.forEach((order) => {
-    // Round price to precision level
+    // Bids: Round DOWN to precision level
     const groupedPrice = Math.floor(order.price / precision) * precision;
     
     const existing = grouped.get(groupedPrice);
@@ -61,14 +61,48 @@ function groupOrdersByPrice(
     }
   });
 
-  // Convert back to array and sort
+  // Convert to array, sort descending (best bids first), take top 10
   return Array.from(grouped.entries())
     .map(([price, data]) => ({
       price,
       size: data.size,
       total: data.total,
     }))
-    .sort((a, b) => b.price - a.price); // Descending order
+    .sort((a, b) => b.price - a.price)
+    .slice(0, 10);
+}
+
+function groupAsksByPrice(
+  orders: OrderBookEntry[],
+  precision: number
+): OrderBookEntry[] {
+  const grouped = new Map<number, { size: number; total: number }>();
+
+  orders.forEach((order) => {
+    // Asks: Round UP to precision level
+    const groupedPrice = Math.ceil(order.price / precision) * precision;
+    
+    const existing = grouped.get(groupedPrice);
+    if (existing) {
+      existing.size += order.size;
+      existing.total += order.total;
+    } else {
+      grouped.set(groupedPrice, {
+        size: order.size,
+        total: order.total,
+      });
+    }
+  });
+
+  // Convert to array, sort ascending (best asks first), take top 10
+  return Array.from(grouped.entries())
+    .map(([price, data]) => ({
+      price,
+      size: data.size,
+      total: data.total,
+    }))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 10);
 }
 
 export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
@@ -77,11 +111,11 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
 
   // Group orders by selected precision
   const groupedAsks = useMemo(() => {
-    return groupOrdersByPrice(data.asks, precisionValue).slice(0, 10); // Limit to 10 levels
+    return groupAsksByPrice(data.asks, precisionValue);
   }, [data.asks, precisionValue]);
 
   const groupedBids = useMemo(() => {
-    return groupOrdersByPrice(data.bids, precisionValue).slice(0, 10); // Limit to 10 levels
+    return groupBidsByPrice(data.bids, precisionValue);
   }, [data.bids, precisionValue]);
 
   const maxTotal = Math.max(
@@ -150,7 +184,7 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
           <span className="text-right">Total</span>
         </div>
 
-        {/* Asks (Sells) - Red */}
+        {/* Asks (Sells) - Red, displayed from highest to lowest (descending) */}
         <div className="space-y-1">
           {groupedAsks.length > 0 ? (
             [...groupedAsks].reverse().map((ask) => (
