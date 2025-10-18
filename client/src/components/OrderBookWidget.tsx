@@ -190,7 +190,7 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
             size="icon"
             variant="ghost"
             onClick={onConfigure}
-            className="h-6 w-6"
+            className="h-6 w-6 relative z-10 pointer-events-auto"
             data-testid="button-configure-orderbook"
           >
             <Settings className="h-3 w-3" />

@@ -294,7 +294,10 @@ export default function Dashboard() {
                 allTimeLow: 0,
                 exchanges: [],
               }}
-              onConfigure={() => setIsMarketConfigOpen(true)}
+              onConfigure={() => {
+                console.log("Opening market config modal");
+                setIsMarketConfigOpen(true);
+              }}
             />
           </div>
           <div key="orderbook-1" className="h-full">
@@ -308,7 +311,10 @@ export default function Dashboard() {
                 exchanges: [],
               }}
               viewMode={orderBookViewMode}
-              onConfigure={() => setIsOrderBookConfigOpen(true)}
+              onConfigure={() => {
+                console.log("Opening order book config modal");
+                setIsOrderBookConfigOpen(true);
+              }}
             />
           </div>
           <div key="webhook-1" className="h-full">
