@@ -101,18 +101,18 @@ export default function WatchlistWidget({
               data-testid={`watchlist-token-${token.symbol}`}
             >
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium">{token.symbol}</span>
+                <span className="text-xs font-medium">{token.symbol}</span>
               </div>
               
               <div className="text-right">
-                <span className="text-sm font-mono font-medium">
+                <span className="text-xs font-mono font-medium">
                   ${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
               <div className="text-right">
                 <div className={cn(
-                  "flex items-center justify-end gap-1 text-sm font-medium",
+                  "flex items-center justify-end gap-1 text-xs font-medium",
                   token.change24h >= 0 ? "text-positive" : "text-negative"
                 )}>
                   {token.change24h >= 0 ? (
@@ -126,7 +126,7 @@ export default function WatchlistWidget({
 
               <div className="text-right">
                 <span className={cn(
-                  "text-sm font-medium",
+                  "text-xs font-medium",
                   token.change7d >= 0 ? "text-positive" : "text-negative"
                 )}>
                   {token.change7d >= 0 ? "+" : ""}{token.change7d.toFixed(2)}%
