@@ -50,7 +50,7 @@ export default function WebhookWidget({ messages, onToggleBookmark }: WebhookWid
     );
 
   return (
-    <Card className="p-4 flex flex-col" data-testid="widget-webhook">
+    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-webhook">
       <div className="mb-4">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
           Webhook Messages

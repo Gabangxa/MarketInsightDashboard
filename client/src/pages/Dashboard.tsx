@@ -9,6 +9,8 @@ import WebhookWidget from "@/components/WebhookWidget";
 import AlertsWidget from "@/components/AlertsWidget";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import WatchlistWidget from "@/components/WatchlistWidget";
+import OrderBookConfigModal from "@/components/OrderBookConfigModal";
+import MarketDataConfigModal from "@/components/MarketDataConfigModal";
 import { Toaster } from "react-hot-toast";
 import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
@@ -22,7 +24,10 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
+  const [isMarketConfigOpen, setIsMarketConfigOpen] = useState(false);
+  const [isOrderBookConfigOpen, setIsOrderBookConfigOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
+  const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
 
@@ -108,9 +113,9 @@ export default function Dashboard() {
   // Handle new webhooks from WebSocket
   useEffect(() => {
     if (newWebhook) {
-      queryClient.setQueryData<WebhookMessage[]>(["/api/webhooks"], (old = []) => {
+      queryClient.setQueryData(["/api/webhooks"], (old: any = []) => {
         // Check if webhook already exists to prevent duplicates
-        if (old.some(w => w.id === newWebhook.id)) return old;
+        if (old.some((w: any) => w.id === newWebhook.id)) return old;
         // Add new webhook at the beginning (newest first)
         return [newWebhook, ...old];
       });
@@ -265,7 +270,7 @@ export default function Dashboard() {
           isResizable={true}
           resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
         >
-          <div key="watchlist-1">
+          <div key="watchlist-1" className="h-full">
             <WatchlistWidget
               tokens={watchlistData}
               selectedSymbol={selectedSymbol}
@@ -277,7 +282,7 @@ export default function Dashboard() {
               onSelectToken={handleSelectToken}
             />
           </div>
-          <div key="market-1">
+          <div key="market-1" className="h-full">
             <MarketDataWidget
               data={aggregatedMarketData || {
                 symbol: selectedSymbol,
@@ -289,10 +294,10 @@ export default function Dashboard() {
                 allTimeLow: 0,
                 exchanges: [],
               }}
-              onConfigure={() => console.log('Configure market widget')}
+              onConfigure={() => setIsMarketConfigOpen(true)}
             />
           </div>
-          <div key="orderbook-1">
+          <div key="orderbook-1" className="h-full">
             <OrderBookWidget
               data={aggregatedOrderBook || {
                 symbol: selectedSymbol,
@@ -302,10 +307,11 @@ export default function Dashboard() {
                 spreadPercent: 0,
                 exchanges: [],
               }}
-              onConfigure={() => console.log('Configure orderbook widget')}
+              viewMode={orderBookViewMode}
+              onConfigure={() => setIsOrderBookConfigOpen(true)}
             />
           </div>
-          <div key="webhook-1">
+          <div key="webhook-1" className="h-full">
             <WebhookWidget
               messages={webhookMessages.map(wh => ({
                 ...wh,
@@ -319,7 +325,7 @@ export default function Dashboard() {
               }}
             />
           </div>
-          <div key="alerts-1">
+          <div key="alerts-1" className="h-full">
             <AlertsWidget
               alerts={alerts.map(a => ({
                 id: a.id,
@@ -349,6 +355,22 @@ export default function Dashboard() {
           };
           addAlertMutation.mutate(alertData);
         }}
+      />
+
+      <MarketDataConfigModal
+        isOpen={isMarketConfigOpen}
+        onClose={() => setIsMarketConfigOpen(false)}
+        selectedExchanges={selectedExchanges}
+        onExchangesChange={setSelectedExchanges}
+      />
+
+      <OrderBookConfigModal
+        isOpen={isOrderBookConfigOpen}
+        onClose={() => setIsOrderBookConfigOpen(false)}
+        viewMode={orderBookViewMode}
+        onViewModeChange={setOrderBookViewMode}
+        selectedExchanges={selectedExchanges}
+        onExchangesChange={setSelectedExchanges}
       />
     </div>
   );

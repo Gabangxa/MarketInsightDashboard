@@ -27,7 +27,7 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
   
   return (
     <Card className={cn(
-      "p-4 relative transition-colors duration-300",
+      "h-full p-4 relative transition-colors duration-300",
       flashColor === "positive" && "bg-positive/10",
       flashColor === "negative" && "bg-negative/10"
     )} data-testid="widget-market-data">

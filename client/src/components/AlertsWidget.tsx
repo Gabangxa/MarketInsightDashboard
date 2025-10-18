@@ -23,7 +23,7 @@ interface AlertsWidgetProps {
 
 export default function AlertsWidget({ alerts, onAddAlert, onDeleteAlert }: AlertsWidgetProps) {
   return (
-    <Card className="p-4" data-testid="widget-alerts">
+    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-alerts">
       <div className="flex items-start justify-between mb-4">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Active Alerts

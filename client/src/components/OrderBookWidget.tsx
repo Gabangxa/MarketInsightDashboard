@@ -28,6 +28,7 @@ export interface OrderBookData {
 interface OrderBookWidgetProps {
   data: OrderBookData;
   onConfigure?: () => void;
+  viewMode?: "both" | "bids" | "asks";
 }
 
 // Percentage increment levels for depth buckets
@@ -96,7 +97,7 @@ function createDepthBuckets(
   return buckets;
 }
 
-export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetProps) {
+export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }: OrderBookWidgetProps) {
   const [percentIncrement, setPercentIncrement] = useState("0.1");
   const incrementValue = parseFloat(percentIncrement);
 
@@ -146,7 +147,7 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
   }, [data.asks, data.bids, incrementValue]);
 
   return (
-    <Card className="p-4" data-testid="widget-order-book">
+    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-order-book">
       <div className="flex items-start justify-between mb-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -206,73 +207,79 @@ export default function OrderBookWidget({ data, onConfigure }: OrderBookWidgetPr
         </div>
 
         {/* Asks (Sells) - Red, furthest from mid at top */}
-        <div className="space-y-1">
-          {displayAsks.length > 0 ? (
-            displayAsks.map((ask, idx) => (
-              <div
-                key={`ask-${ask.percentage}`}
-                className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-ask-${ask.percentage}`}
-              >
+        {(viewMode === "both" || viewMode === "asks") && (
+          <div className="space-y-1">
+            {displayAsks.length > 0 ? (
+              displayAsks.map((ask, idx) => (
                 <div
-                  className="absolute inset-0 bg-negative/20 transition-all duration-300 ease-out"
-                  style={{ width: `${(ask.total / maxTotal) * 100}%` }}
-                />
-                <span className="relative text-negative font-medium">
-                  {ask.price.toFixed(2)}
-                </span>
-                <span className="relative text-right">
-                  {ask.size > 0 ? ask.size.toFixed(4) : '-'}
-                </span>
-                <span className="relative text-right text-muted-foreground">
-                  {ask.total > 0 ? ask.total.toFixed(2) : '-'}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-xs text-muted-foreground text-center py-2">No asks</div>
-          )}
-        </div>
+                  key={`ask-${ask.percentage}`}
+                  className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                  data-testid={`orderbook-ask-${ask.percentage}`}
+                >
+                  <div
+                    className="absolute inset-0 bg-negative/20 transition-all duration-300 ease-out"
+                    style={{ width: `${(ask.total / maxTotal) * 100}%` }}
+                  />
+                  <span className="relative text-negative font-medium">
+                    {ask.price.toFixed(2)}
+                  </span>
+                  <span className="relative text-right">
+                    {ask.size > 0 ? ask.size.toFixed(4) : '-'}
+                  </span>
+                  <span className="relative text-right text-muted-foreground">
+                    {ask.total > 0 ? ask.total.toFixed(2) : '-'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-muted-foreground text-center py-2">No asks</div>
+            )}
+          </div>
+        )}
 
-        {/* Spread */}
-        <div className="py-2 border-y border-border">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-muted-foreground">Spread</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono font-medium">${data.spread.toFixed(2)}</span>
-              <span className="text-muted-foreground">({data.spreadPercent.toFixed(3)}%)</span>
+        {/* Spread - Only show when both sides are visible */}
+        {viewMode === "both" && (
+          <div className="py-2 border-y border-border">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">Spread</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-medium">${data.spread.toFixed(2)}</span>
+                <span className="text-muted-foreground">({data.spreadPercent.toFixed(3)}%)</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Bids (Buys) - Green, closest to mid at top */}
-        <div className="space-y-1">
-          {displayBids.length > 0 ? (
-            displayBids.map((bid, idx) => (
-              <div
-                key={`bid-${bid.percentage}`}
-                className="relative grid grid-cols-3 text-xs font-mono py-1.5"
-                data-testid={`orderbook-bid-${bid.percentage}`}
-              >
+        {(viewMode === "both" || viewMode === "bids") && (
+          <div className="space-y-1">
+            {displayBids.length > 0 ? (
+              displayBids.map((bid, idx) => (
                 <div
-                  className="absolute inset-0 bg-positive/20 transition-all duration-300 ease-out"
-                  style={{ width: `${(bid.total / maxTotal) * 100}%` }}
-                />
-                <span className="relative text-positive font-medium">
-                  {bid.price.toFixed(2)}
-                </span>
-                <span className="relative text-right">
-                  {bid.size > 0 ? bid.size.toFixed(4) : '-'}
-                </span>
-                <span className="relative text-right text-muted-foreground">
-                  {bid.total > 0 ? bid.total.toFixed(2) : '-'}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-xs text-muted-foreground text-center py-2">No bids</div>
-          )}
-        </div>
+                  key={`bid-${bid.percentage}`}
+                  className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                  data-testid={`orderbook-bid-${bid.percentage}`}
+                >
+                  <div
+                    className="absolute inset-0 bg-positive/20 transition-all duration-300 ease-out"
+                    style={{ width: `${(bid.total / maxTotal) * 100}%` }}
+                  />
+                  <span className="relative text-positive font-medium">
+                    {bid.price.toFixed(2)}
+                  </span>
+                  <span className="relative text-right">
+                    {bid.size > 0 ? bid.size.toFixed(4) : '-'}
+                  </span>
+                  <span className="relative text-right text-muted-foreground">
+                    {bid.total > 0 ? bid.total.toFixed(2) : '-'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-muted-foreground text-center py-2">No bids</div>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

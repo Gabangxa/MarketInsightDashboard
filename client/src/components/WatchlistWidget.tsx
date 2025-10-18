@@ -41,7 +41,7 @@ export default function WatchlistWidget({
   };
 
   return (
-    <Card className="p-4 flex flex-col" data-testid="widget-watchlist">
+    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-watchlist">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
