@@ -55,22 +55,22 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
 
       <div className="space-y-3">
         <div>
-          <div className="font-mono text-3xl font-semibold tracking-tight">
+          <div className="font-mono text-xs font-semibold tracking-tight">
             ${data.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center gap-2 mt-1">
             {isPositive ? (
-              <TrendingUp className="h-4 w-4 text-positive" />
+              <TrendingUp className="h-3 w-3 text-positive" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-negative" />
+              <TrendingDown className="h-3 w-3 text-negative" />
             )}
             <span className={cn(
-              "text-sm font-medium",
+              "text-xs font-medium",
               isPositive ? "text-positive" : "text-negative"
             )}>
               {isPositive ? "+" : ""}{data.priceChangePercent.toFixed(2)}%
             </span>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {isPositive ? "+" : ""}{data.priceChange.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
