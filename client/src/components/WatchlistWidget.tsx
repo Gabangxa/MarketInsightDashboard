@@ -94,7 +94,7 @@ export default function WatchlistWidget({
             <div
               key={token.symbol}
               className={cn(
-                "grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-2 py-2 px-2 rounded-lg cursor-pointer hover-elevate transition-colors group",
+                "grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-2 py-2 px-2 rounded-lg cursor-pointer hover-elevate transition-colors group items-center",
                 selectedSymbol === token.symbol && "bg-primary/10 border border-primary/20"
               )}
               onClick={() => onSelectToken?.(token.symbol)}
@@ -104,15 +104,15 @@ export default function WatchlistWidget({
                 <span className="text-xs font-medium">{token.symbol}</span>
               </div>
               
-              <div className="text-right">
+              <div className="flex items-center justify-end">
                 <span className="text-xs font-mono font-medium">
                   ${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
-              <div className="text-right">
+              <div className="flex items-center justify-end gap-1">
                 <div className={cn(
-                  "flex items-center justify-end gap-1 text-xs font-medium",
+                  "flex items-center gap-1 text-xs font-medium",
                   token.change24h >= 0 ? "text-positive" : "text-negative"
                 )}>
                   {token.change24h >= 0 ? (
@@ -124,7 +124,7 @@ export default function WatchlistWidget({
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="flex items-center justify-end">
                 <span className={cn(
                   "text-xs font-medium",
                   token.change7d >= 0 ? "text-positive" : "text-negative"
