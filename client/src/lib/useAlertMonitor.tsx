@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import type { Alert } from "@shared/schema";
 import type { MarketData, WebhookMessage } from "./useMarketWebSocket";
 import { apiRequest, queryClient } from "./queryClient";
+import { PriceAlertToast, KeywordAlertToast } from "@/components/AlertToast";
 
 interface AlertMonitorProps {
   alerts: Alert[];
@@ -66,12 +67,22 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         // Invalidate alerts query
         queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
 
-        // Show toast notification
-        toast.success(
-          `Price Alert: ${alert.symbol} on ${triggerExchange} ${alert.condition} $${alert.value} (Current: $${triggerPrice.toFixed(2)})`,
+        // Show custom toast notification
+        toast.custom(
+          (t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'}`}>
+              <PriceAlertToast
+                symbol={alert.symbol!}
+                exchange={triggerExchange}
+                condition={alert.condition!}
+                value={alert.value!}
+                currentPrice={triggerPrice}
+              />
+            </div>
+          ),
           {
-            duration: 6000,
-            icon: "🚨",
+            duration: 8000,
+            position: "top-right",
           }
         );
       }
@@ -96,12 +107,19 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         // Invalidate alerts query
         queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
 
-        // Show toast notification
-        toast(
-          `Keyword Alert: "${alert.keyword}" found in webhook from ${webhook.source}`,
+        // Show custom toast notification
+        toast.custom(
+          (t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'}`}>
+              <KeywordAlertToast
+                keyword={alert.keyword!}
+                source={webhook.source}
+              />
+            </div>
+          ),
           {
-            duration: 6000,
-            icon: "🔔",
+            duration: 8000,
+            position: "top-right",
           }
         );
       }
