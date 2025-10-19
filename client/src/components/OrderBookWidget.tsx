@@ -133,9 +133,10 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
     const asksReversed = [...askBuckets].reverse();
     
     // Recalculate running totals in display order (top to bottom)
+    // Use cumulative SIZE (not USD value) to match bids
     let askRunningTotal = 0;
     asksReversed.forEach(ask => {
-      askRunningTotal += ask.price * ask.size;
+      askRunningTotal += ask.size;
       ask.total = askRunningTotal;
     });
     
