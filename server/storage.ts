@@ -8,9 +8,20 @@ import {
   type WebhookMessage,
   type InsertWebhookMessage,
   type DashboardConfig,
-  type InsertDashboardConfig
+  type InsertDashboardConfig,
+  users,
+  watchlistTokens,
+  alerts,
+  webhookMessages,
+  dashboardConfig
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { eq, desc } from "drizzle-orm";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
+
+neonConfig.webSocketConstructor = ws;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -108,6 +119,8 @@ export class MemStorage implements IStorage {
       keyword: alert.keyword || null,
       triggered: false,
       lastTriggered: null,
+      triggerCount: 0,
+      maxTriggers: alert.maxTriggers || null,
       createdAt: new Date(),
     };
     this.alerts.set(id, newAlert);
@@ -188,4 +201,126 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class PostgresStorage implements IStorage {
+  private db;
+
+  constructor() {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.db = drizzle(pool);
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async getWatchlistTokens(userId: string): Promise<WatchlistToken[]> {
+    return await this.db
+      .select()
+      .from(watchlistTokens)
+      .where(eq(watchlistTokens.userId, userId))
+      .orderBy(desc(watchlistTokens.createdAt));
+  }
+
+  async createWatchlistToken(token: InsertWatchlistToken): Promise<WatchlistToken> {
+    const result = await this.db.insert(watchlistTokens).values(token as any).returning();
+    return result[0];
+  }
+
+  async deleteWatchlistToken(id: string): Promise<void> {
+    await this.db.delete(watchlistTokens).where(eq(watchlistTokens.id, id));
+  }
+
+  async getAlerts(userId: string): Promise<Alert[]> {
+    return await this.db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.userId, userId))
+      .orderBy(desc(alerts.createdAt));
+  }
+
+  async createAlert(alert: InsertAlert): Promise<Alert> {
+    const result = await this.db.insert(alerts).values(alert as any).returning();
+    return result[0];
+  }
+
+  async updateAlert(id: string, updates: Partial<Alert>): Promise<Alert | undefined> {
+    const result = await this.db
+      .update(alerts)
+      .set(updates)
+      .where(eq(alerts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteAlert(id: string): Promise<void> {
+    await this.db.delete(alerts).where(eq(alerts.id, id));
+  }
+
+  async getWebhookMessages(userId: string, limit: number = 100): Promise<WebhookMessage[]> {
+    return await this.db
+      .select()
+      .from(webhookMessages)
+      .where(eq(webhookMessages.userId, userId))
+      .orderBy(desc(webhookMessages.timestamp))
+      .limit(limit);
+  }
+
+  async createWebhookMessage(message: InsertWebhookMessage): Promise<WebhookMessage> {
+    const result = await this.db.insert(webhookMessages).values({
+      ...message,
+      userId: message.userId || "default-user",
+    }).returning();
+    return result[0];
+  }
+
+  async updateWebhookMessage(id: string, updates: Partial<WebhookMessage>): Promise<WebhookMessage | undefined> {
+    const result = await this.db
+      .update(webhookMessages)
+      .set(updates)
+      .where(eq(webhookMessages.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getDashboardConfig(userId: string): Promise<DashboardConfig | undefined> {
+    const result = await this.db
+      .select()
+      .from(dashboardConfig)
+      .where(eq(dashboardConfig.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async saveDashboardConfig(config: InsertDashboardConfig): Promise<DashboardConfig> {
+    const userId = config.userId || "default-user";
+    const existing = await this.getDashboardConfig(userId);
+    
+    if (existing) {
+      const result = await this.db
+        .update(dashboardConfig)
+        .set({ layout: config.layout, updatedAt: new Date() })
+        .where(eq(dashboardConfig.id, existing.id))
+        .returning();
+      return result[0];
+    }
+    
+    const result = await this.db.insert(dashboardConfig).values({
+      ...config,
+      userId,
+    }).returning();
+    return result[0];
+  }
+}
+
+export const storage = process.env.DATABASE_URL ? new PostgresStorage() : new MemStorage();
