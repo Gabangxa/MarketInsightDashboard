@@ -119,9 +119,10 @@ Preferred communication style: Simple, everyday language.
 
 **Data Storage Pattern:**
 - Abstract `IStorage` interface for flexibility
-- In-memory implementation (`MemStorage`) with Map-based storage
-- Schema designed for PostgreSQL via Drizzle ORM
+- PostgreSQL implementation (`PostgresStorage`) using Drizzle ORM with Neon serverless driver
+- Falls back to in-memory storage (`MemStorage`) if DATABASE_URL not available
 - Data models: Users, WatchlistTokens, Alerts, WebhookMessages, DashboardConfig
+- All data persists across sessions via PostgreSQL database
 
 **Exchange Integration:**
 - Direct WebSocket connections to public APIs:
@@ -160,11 +161,12 @@ Preferred communication style: Simple, everyday language.
 - Boolean flags for states (triggered, bookmarked)
 - Decimal precision for financial data (20,8)
 
-**Current Implementation:**
-- In-memory storage active for development
-- Drizzle schema fully defined and migration-ready
+**Current Implementation (Updated Oct 19, 2025):**
+- ✅ PostgreSQL database active and persisting all data
+- Drizzle ORM with Neon serverless driver for database operations
 - Database configured via `DATABASE_URL` environment variable
-- Migration directory: `./migrations`
+- Schema pushed to database via `npm run db:push`
+- All watchlist, alerts, webhook messages, and dashboard layouts persist across sessions
 
 ### Authentication and Authorization
 
