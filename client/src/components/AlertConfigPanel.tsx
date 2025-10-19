@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +10,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface AlertConfig {
   id: string;
@@ -78,25 +84,19 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
     onClose();
   };
 
-  if (!isOpen) return null;
-
+  console.log('[AlertConfigPanel] Render - isOpen:', isOpen);
+  
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" data-testid="alert-config-panel">
-      <div className="fixed right-0 top-0 bottom-0 w-96 bg-card border-l border-border shadow-2xl p-6 overflow-auto">
-        <div className="flex items-start justify-between mb-6">
-          <h2 className="text-lg font-semibold">Configure Alert</h2>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onClose}
-            className="h-8 w-8"
-            data-testid="button-close-alert-config"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md" data-testid="alert-config-panel">
+        <DialogHeader>
+          <DialogTitle>Configure Alert</DialogTitle>
+          <DialogDescription>
+            Set up price or keyword alerts for crypto markets
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
           <div>
             <Label htmlFor="alert-type" className="text-sm font-medium mb-2 block">
               Alert Type
@@ -197,15 +197,16 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
             </div>
           )}
 
-          <Button
-            className="w-full"
-            onClick={handleSave}
-            data-testid="button-save-alert"
-          >
-            Save Alert
-          </Button>
         </div>
-      </div>
-    </div>
+
+        <Button
+          className="w-full"
+          onClick={handleSave}
+          data-testid="button-save-alert"
+        >
+          Save Alert
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
