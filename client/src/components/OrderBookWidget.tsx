@@ -64,7 +64,6 @@ function createDepthBuckets(
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const actualSpreadPct = Math.abs((maxPrice - minPrice) / midPrice) * 100;
-  console.log(`[OrderBook ${type}] ${orders.length} orders: $${minPrice.toFixed(2)}-$${maxPrice.toFixed(2)}, mid $${midPrice.toFixed(2)}, spread ${actualSpreadPct.toFixed(4)}%`);
   
   // If orders span less than the configured range, use actual spread
   // Otherwise use percentage increments
