@@ -56,6 +56,22 @@ Preferred communication style: Simple, everyday language.
 - WebSocket state managed via custom `useMarketWebSocket` hook
 - Alert monitoring via `useAlertMonitor` hook with toast notifications
 
+**Alert System:**
+- **Configuration UI:** Centered modal dialog (converted from side panel on Oct 19, 2025)
+  - Performance optimized with conditional rendering to prevent re-renders when closed
+  - Clear visibility with shadcn Dialog component
+- **Alert Types:**
+  - Price Alerts: Monitor symbol price against threshold (>, <, >=, <=)
+  - Keyword Alerts: Scan webhook messages for specific keywords
+- **Alert Monitoring:**
+  - `useAlertMonitor` hook checks alerts on every market data update
+  - Toast notifications when alerts trigger
+  - Alert status persisted (triggered=true, lastTriggered timestamp)
+- **Important Limitation:** Price alerts only work for symbols with active WebSocket connections
+  - Alerts require the symbol to be in the watchlist or actively monitored
+  - Example: BTCUSDT alert works (default symbol), but ETHUSDT alert won't work unless ETHUSDT is added to watchlist first
+  - This is by design to avoid unnecessary WebSocket connections
+
 ### Backend Architecture
 
 **Server Framework:**
