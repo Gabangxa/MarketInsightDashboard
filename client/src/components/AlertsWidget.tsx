@@ -13,6 +13,8 @@ export interface Alert {
   keyword?: string;
   triggered: boolean;
   lastTriggered?: Date;
+  triggerCount: number;
+  maxTriggers: number | null;
 }
 
 interface AlertsWidgetProps {
@@ -119,6 +121,10 @@ export default function AlertsWidget({ alerts, onAddAlert, onEditAlert, onDelete
                     Last triggered: {format(new Date(alert.lastTriggered), 'MMM d, HH:mm:ss')}
                   </p>
                 )}
+                
+                <p className="text-xs text-muted-foreground mt-1">
+                  Triggers: {alert.triggerCount}{alert.maxTriggers !== null ? ` / ${alert.maxTriggers}` : ' (unlimited)'}
+                </p>
               </div>
             </div>
           ))

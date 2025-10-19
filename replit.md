@@ -60,13 +60,23 @@ Preferred communication style: Simple, everyday language.
 - **Configuration UI:** Centered modal dialog (converted from side panel on Oct 19, 2025)
   - Performance optimized with conditional rendering to prevent re-renders when closed
   - Clear visibility with shadcn Dialog component
+  - Editable alerts: Click Edit button (Pencil icon) to modify existing alerts (implemented Oct 19, 2025)
 - **Alert Types:**
   - Price Alerts: Monitor symbol price against threshold (>, <, >=, <=)
   - Keyword Alerts: Scan webhook messages for specific keywords
+- **Trigger Limits:** (implemented Oct 19, 2025)
+  - `maxTriggers` field: Optional limit on how many times an alert can trigger
+  - `triggerCount` field: Tracks number of times alert has triggered
+  - null/empty maxTriggers = unlimited triggers
+  - Alert stops triggering when triggerCount >= maxTriggers
+  - UI displays "Triggers: X / Y" or "Triggers: X (unlimited)"
 - **Alert Monitoring:**
   - `useAlertMonitor` hook checks alerts on every market data update
+  - Skips alerts that have reached their trigger limit
+  - Increments triggerCount on each trigger
+  - Marks alert as triggered=true only when limit is reached
   - Custom styled toast notifications when alerts trigger (implemented Oct 19, 2025)
-  - Alert status persisted (triggered=true, lastTriggered timestamp)
+  - Alert status persisted (triggered, lastTriggered, triggerCount)
 - **Toast Notification Styling:**
   - Custom React components (`PriceAlertToast`, `KeywordAlertToast`)
   - Gradient backgrounds: red/orange for price alerts, blue/purple for keyword alerts

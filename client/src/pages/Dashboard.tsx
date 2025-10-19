@@ -358,6 +358,8 @@ export default function Dashboard() {
                 keyword: a.keyword || undefined,
                 triggered: a.triggered,
                 lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
+                triggerCount: a.triggerCount,
+                maxTriggers: a.maxTriggers,
               }))}
               onAddAlert={() => {
                 setEditingAlert(null);
@@ -387,6 +389,7 @@ export default function Dashboard() {
           condition: editingAlert.condition || undefined,
           value: editingAlert.value?.toString() || undefined,
           keyword: editingAlert.keyword || undefined,
+          maxTriggers: editingAlert.maxTriggers || null,
         } : null}
         onSave={(config) => {
           // Ensure value is string for backend decimal type

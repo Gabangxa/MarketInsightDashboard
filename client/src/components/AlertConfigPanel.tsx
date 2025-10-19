@@ -26,6 +26,7 @@ export interface AlertConfig {
   condition?: string;
   value?: string;
   keyword?: string;
+  maxTriggers?: number | null;
 }
 
 interface AlertConfigPanelProps {
@@ -44,12 +45,14 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert
   const [condition, setCondition] = useState(">");
   const [value, setValue] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [maxTriggers, setMaxTriggers] = useState<string>(""); // empty string = unlimited
 
   // Pre-fill form when editing
   useEffect(() => {
     if (editingAlert) {
       setAlertType(editingAlert.type);
       setSelectedExchanges(editingAlert.exchanges || []);
+      setMaxTriggers(editingAlert.maxTriggers?.toString() || "");
       if (editingAlert.type === "price") {
         setSymbol(editingAlert.symbol || "BTCUSDT");
         setCondition(editingAlert.condition || ">");
@@ -65,6 +68,7 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert
       setCondition(">");
       setValue("");
       setKeyword("");
+      setMaxTriggers("");
     }
   }, [editingAlert, isOpen]);
 
@@ -103,6 +107,7 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert
       ...(editingAlert ? { id: editingAlert.id } : {}),
       type: alertType,
       exchanges: selectedExchanges,
+      maxTriggers: maxTriggers.trim() === "" ? null : parseInt(maxTriggers),
       ...(alertType === "price" ? { symbol, condition, value: value } : { keyword })
     };
     onSave?.(config);
@@ -219,6 +224,24 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert
               />
             </div>
           )}
+
+          <div>
+            <Label htmlFor="max-triggers" className="text-sm font-medium mb-2 block">
+              Max Triggers
+            </Label>
+            <Input
+              id="max-triggers"
+              type="number"
+              min="1"
+              placeholder="Leave empty for unlimited"
+              value={maxTriggers}
+              onChange={(e) => setMaxTriggers(e.target.value)}
+              data-testid="input-max-triggers"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              How many times this alert can trigger. Leave empty for unlimited triggers.
+            </p>
+          </div>
 
         </div>
 

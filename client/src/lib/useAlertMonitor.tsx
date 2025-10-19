@@ -17,7 +17,11 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
   const checkPriceAlerts = useCallback((alerts: Alert[], marketData: Map<string, Map<string, MarketData>>) => {
     alerts.forEach(async (alert) => {
       if (alert.type !== "price" || !alert.symbol || !alert.condition || !alert.value) return;
-      if (alert.triggered) return; // Skip already triggered alerts
+      
+      // Check if alert has reached max triggers
+      if (alert.maxTriggers !== null && alert.triggerCount >= alert.maxTriggers) {
+        return; // Skip alerts that have reached their limit
+      }
 
       const symbolData = marketData.get(alert.symbol);
       if (!symbolData) return;
@@ -58,10 +62,14 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
       });
 
       if (shouldTrigger) {
+        const newTriggerCount = alert.triggerCount + 1;
+        const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
+        
         // Update alert status
         await apiRequest("PATCH", `/api/alerts/${alert.id}`, {
-          triggered: true,
+          triggered: reachedLimit, // Only mark as "triggered" if limit reached
           lastTriggered: new Date(),
+          triggerCount: newTriggerCount,
         });
 
         // Invalidate alerts query
@@ -93,15 +101,24 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
   const checkKeywordAlerts = useCallback((alerts: Alert[], webhook: WebhookMessage) => {
     alerts.forEach(async (alert) => {
       if (alert.type !== "keyword" || !alert.keyword) return;
+      
+      // Check if alert has reached max triggers
+      if (alert.maxTriggers !== null && alert.triggerCount >= alert.maxTriggers) {
+        return; // Skip alerts that have reached their limit
+      }
 
       const message = webhook.message.toLowerCase();
       const keyword = alert.keyword.toLowerCase();
 
       if (message.includes(keyword)) {
+        const newTriggerCount = alert.triggerCount + 1;
+        const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
+        
         // Update alert status
         await apiRequest("PATCH", `/api/alerts/${alert.id}`, {
-          triggered: true,
+          triggered: reachedLimit, // Only mark as "triggered" if limit reached
           lastTriggered: new Date(),
+          triggerCount: newTriggerCount,
         });
 
         // Invalidate alerts query

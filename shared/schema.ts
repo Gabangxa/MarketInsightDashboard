@@ -28,6 +28,8 @@ export const alerts = pgTable("alerts", {
   keyword: text("keyword"),
   triggered: boolean("triggered").notNull().default(false),
   lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").notNull().default(0),
+  maxTriggers: integer("max_triggers"), // null = unlimited
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -63,6 +65,7 @@ export const insertAlertSchema = createInsertSchema(alerts).omit({
   createdAt: true,
   triggered: true,
   lastTriggered: true,
+  triggerCount: true,
 });
 
 export const insertWebhookMessageSchema = createInsertSchema(webhookMessages).omit({
