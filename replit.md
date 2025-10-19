@@ -65,8 +65,15 @@ Preferred communication style: Simple, everyday language.
   - Keyword Alerts: Scan webhook messages for specific keywords
 - **Alert Monitoring:**
   - `useAlertMonitor` hook checks alerts on every market data update
-  - Toast notifications when alerts trigger
+  - Custom styled toast notifications when alerts trigger (implemented Oct 19, 2025)
   - Alert status persisted (triggered=true, lastTriggered timestamp)
+- **Toast Notification Styling:**
+  - Custom React components (`PriceAlertToast`, `KeywordAlertToast`)
+  - Gradient backgrounds: red/orange for price alerts, blue/purple for keyword alerts
+  - Full border styling: `border border-{color}/40` complies with design guidelines
+  - Rounded corners (`rounded-md`) with proper iconography (TrendingUp/Down, Bell, AlertTriangle)
+  - Clear information hierarchy: white text for important data, gray for secondary info
+  - 8-second duration, top-right positioning via react-hot-toast
 - **Important Limitation:** Price alerts only work for symbols with active WebSocket connections
   - Alerts require the symbol to be in the watchlist or actively monitored
   - Example: BTCUSDT alert works (default symbol), but ETHUSDT alert won't work unless ETHUSDT is added to watchlist first
