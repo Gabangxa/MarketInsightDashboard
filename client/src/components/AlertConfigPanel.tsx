@@ -84,7 +84,8 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
     onClose();
   };
 
-  console.log('[AlertConfigPanel] Render - isOpen:', isOpen);
+  // Early return to prevent unnecessary re-renders when closed
+  if (!isOpen) return null;
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
