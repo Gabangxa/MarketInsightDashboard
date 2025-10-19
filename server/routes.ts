@@ -145,6 +145,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/alerts/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateAlert(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Alert update error:", error);
+      res.status(500).json({ error: "Failed to update alert" });
+    }
+  });
+
   app.delete("/api/alerts/:id", async (req, res) => {
     try {
       await storage.deleteAlert(req.params.id);

@@ -6,7 +6,7 @@ import { Plus, LayoutGrid } from "lucide-react";
 import MarketDataWidget from "@/components/MarketDataWidget";
 import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
-import AlertsWidget from "@/components/AlertsWidget";
+import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import WatchlistWidget from "@/components/WatchlistWidget";
 import OrderBookConfigModal from "@/components/OrderBookConfigModal";
@@ -24,6 +24,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<AlertWidgetType | null>(null);
   const [isMarketConfigOpen, setIsMarketConfigOpen] = useState(false);
   const [isOrderBookConfigOpen, setIsOrderBookConfigOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
@@ -87,6 +88,21 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+      setIsAlertPanelOpen(false);
+      setEditingAlert(null);
+    },
+  });
+
+  const updateAlertMutation = useMutation({
+    mutationFn: async (config: any) => {
+      const { id, ...data } = config;
+      const res = await apiRequest("PATCH", `/api/alerts/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
+      setIsAlertPanelOpen(false);
+      setEditingAlert(null);
     },
   });
 
@@ -343,7 +359,14 @@ export default function Dashboard() {
                 triggered: a.triggered,
                 lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
               }))}
-              onAddAlert={() => setIsAlertPanelOpen(true)}
+              onAddAlert={() => {
+                setEditingAlert(null);
+                setIsAlertPanelOpen(true);
+              }}
+              onEditAlert={(alert) => {
+                setEditingAlert(alert);
+                setIsAlertPanelOpen(true);
+              }}
               onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
             />
           </div>
@@ -352,14 +375,33 @@ export default function Dashboard() {
 
       <AlertConfigPanel
         isOpen={isAlertPanelOpen}
-        onClose={() => setIsAlertPanelOpen(false)}
+        onClose={() => {
+          setIsAlertPanelOpen(false);
+          setEditingAlert(null);
+        }}
+        editingAlert={editingAlert ? {
+          id: editingAlert.id,
+          type: editingAlert.type as "price" | "keyword",
+          exchanges: editingAlert.exchanges,
+          symbol: editingAlert.type === "price" ? (alerts.find(a => a.id === editingAlert.id)?.symbol || "") : undefined,
+          condition: editingAlert.condition || undefined,
+          value: editingAlert.value?.toString() || undefined,
+          keyword: editingAlert.keyword || undefined,
+        } : null}
         onSave={(config) => {
           // Ensure value is string for backend decimal type
           const alertData = {
             ...config,
             ...(config.value !== undefined && { value: String(config.value) })
           };
-          addAlertMutation.mutate(alertData);
+          
+          if (config.id) {
+            // Update existing alert
+            updateAlertMutation.mutate(alertData);
+          } else {
+            // Create new alert
+            addAlertMutation.mutate(alertData);
+          }
         }}
       />
 

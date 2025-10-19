@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 export interface AlertConfig {
-  id: string;
+  id?: string;
   type: "price" | "keyword";
   exchanges: string[];
   symbol?: string;
@@ -32,17 +32,41 @@ interface AlertConfigPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (config: AlertConfig) => void;
+  editingAlert?: AlertConfig | null;
 }
 
 const EXCHANGES = ["Binance", "Bybit", "OKX"];
 
-export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfigPanelProps) {
+export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert }: AlertConfigPanelProps) {
   const [alertType, setAlertType] = useState<"price" | "keyword">("price");
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [condition, setCondition] = useState(">");
   const [value, setValue] = useState("");
   const [keyword, setKeyword] = useState("");
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editingAlert) {
+      setAlertType(editingAlert.type);
+      setSelectedExchanges(editingAlert.exchanges || []);
+      if (editingAlert.type === "price") {
+        setSymbol(editingAlert.symbol || "BTCUSDT");
+        setCondition(editingAlert.condition || ">");
+        setValue(editingAlert.value?.toString() || "");
+      } else {
+        setKeyword(editingAlert.keyword || "");
+      }
+    } else {
+      // Reset form when creating new alert
+      setAlertType("price");
+      setSelectedExchanges([]);
+      setSymbol("BTCUSDT");
+      setCondition(">");
+      setValue("");
+      setKeyword("");
+    }
+  }, [editingAlert, isOpen]);
 
   const toggleExchange = (exchange: string) => {
     setSelectedExchanges(prev =>
@@ -76,6 +100,7 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
     }
 
     const config: any = {
+      ...(editingAlert ? { id: editingAlert.id } : {}),
       type: alertType,
       exchanges: selectedExchanges,
       ...(alertType === "price" ? { symbol, condition, value: value } : { keyword })
@@ -83,17 +108,14 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave }: AlertConfi
     onSave?.(config);
     onClose();
   };
-
-  // Early return to prevent unnecessary re-renders when closed
-  if (!isOpen) return null;
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md" data-testid="alert-config-panel">
         <DialogHeader>
-          <DialogTitle>Configure Alert</DialogTitle>
+          <DialogTitle>{editingAlert ? "Edit Alert" : "Configure Alert"}</DialogTitle>
           <DialogDescription>
-            Set up price or keyword alerts for crypto markets
+            {editingAlert ? "Update your alert configuration" : "Set up price or keyword alerts for crypto markets"}
           </DialogDescription>
         </DialogHeader>
 

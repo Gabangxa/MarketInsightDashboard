@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, Pencil } from "lucide-react";
 import { format } from "date-fns";
 
 export interface Alert {
@@ -18,10 +18,11 @@ export interface Alert {
 interface AlertsWidgetProps {
   alerts: Alert[];
   onAddAlert?: () => void;
+  onEditAlert?: (alert: Alert) => void;
   onDeleteAlert?: (id: string) => void;
 }
 
-export default function AlertsWidget({ alerts, onAddAlert, onDeleteAlert }: AlertsWidgetProps) {
+export default function AlertsWidget({ alerts, onAddAlert, onEditAlert, onDeleteAlert }: AlertsWidgetProps) {
   return (
     <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-alerts">
       <div className="flex items-start justify-between mb-4">
@@ -30,7 +31,10 @@ export default function AlertsWidget({ alerts, onAddAlert, onDeleteAlert }: Aler
         </h3>
         <Button
           size="sm"
-          onClick={onAddAlert}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddAlert?.();
+          }}
           className="h-7"
           data-testid="button-add-alert"
         >
@@ -60,15 +64,32 @@ export default function AlertsWidget({ alerts, onAddAlert, onDeleteAlert }: Aler
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                   )}
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onDeleteAlert?.(alert.id)}
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                  data-testid={`button-delete-alert-${alert.id}`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditAlert?.(alert);
+                    }}
+                    className="h-6 w-6"
+                    data-testid={`button-edit-alert-${alert.id}`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteAlert?.(alert.id);
+                    }}
+                    className="h-6 w-6"
+                    data-testid={`button-delete-alert-${alert.id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-1">
