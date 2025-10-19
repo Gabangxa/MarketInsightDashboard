@@ -48,60 +48,111 @@ interface DepthBucket {
   percentage: number; // Distance from mid in %
 }
 
-// Create depth buckets by distributing received orders evenly
+// Create depth buckets using adaptive percentage-based bucketing
 function createDepthBuckets(
   orders: OrderBookEntry[],
   midPrice: number,
   percentIncrement: number,
   type: 'bid' | 'ask'
 ): DepthBucket[] {
-  // If no orders, return empty buckets
-  if (orders.length === 0) {
-    return Array.from({ length: BUCKET_COUNT }, (_, i) => {
-      const pct = (i + 1) * percentIncrement / 100;
-      const price = type === 'ask' ? midPrice * (1 + pct) : midPrice * (1 - pct);
-      return { price, size: 0, total: 0, percentage: (i + 1) * percentIncrement };
-    });
+  if (orders.length === 0 || !midPrice) {
+    return [];
   }
   
-  // Distribute orders evenly across 10 buckets
-  const ordersPerBucket = Math.ceil(orders.length / BUCKET_COUNT);
-  const buckets: DepthBucket[] = [];
+  // Calculate the actual price range of orders
+  const prices = orders.map(o => o.price);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const actualSpreadPct = Math.abs((maxPrice - minPrice) / midPrice) * 100;
+  console.log(`[OrderBook ${type}] ${orders.length} orders: $${minPrice.toFixed(2)}-$${maxPrice.toFixed(2)}, mid $${midPrice.toFixed(2)}, spread ${actualSpreadPct.toFixed(4)}%`);
   
-  for (let i = 0; i < BUCKET_COUNT; i++) {
-    const startIdx = i * ordersPerBucket;
-    const endIdx = Math.min(startIdx + ordersPerBucket, orders.length);
-    const bucketOrders = orders.slice(startIdx, endIdx);
+  // If orders span less than the configured range, use actual spread
+  // Otherwise use percentage increments
+  const useActualSpread = actualSpreadPct < (percentIncrement * BUCKET_COUNT);
+  
+  if (useActualSpread) {
+    // Orders are tightly clustered - distribute them across buckets based on actual prices
+    const priceStep = (maxPrice - minPrice) / BUCKET_COUNT;
+    console.log(`[OrderBook ${type}] Adaptive mode: ${orders.length} orders, spread ${actualSpreadPct.toFixed(4)}%, step $${priceStep.toFixed(2)}`);
+    const buckets: DepthBucket[] = [];
     
-    // Skip empty buckets (can happen with the last bucket if not enough orders)
-    if (bucketOrders.length === 0) {
-      continue;
+    for (let i = 0; i < BUCKET_COUNT; i++) {
+      const bucketMin = type === 'ask' ? minPrice + (i * priceStep) : maxPrice - ((i + 1) * priceStep);
+      const bucketMax = type === 'ask' ? minPrice + ((i + 1) * priceStep) : maxPrice - (i * priceStep);
+      
+      // Find orders in this bucket's price range
+      // For asks: include >= min AND <= max (use <= for last bucket to include maxPrice)
+      // For bids: include >= min AND <= max (use >= for last bucket to include minPrice)
+      const bucketOrders = orders.filter(o => {
+        return type === 'ask' 
+          ? (o.price >= bucketMin && (i === BUCKET_COUNT - 1 ? o.price <= bucketMax : o.price < bucketMax))
+          : (o.price <= bucketMax && (i === BUCKET_COUNT - 1 ? o.price >= bucketMin : o.price > bucketMin));
+      });
+      
+      if (bucketOrders.length > 0) {
+        console.log(`[OrderBook ${type}] Bucket ${i}: ${bucketOrders.length} orders, range $${bucketMin.toFixed(2)}-$${bucketMax.toFixed(2)}`);
+      }
+      
+      if (bucketOrders.length === 0) continue;
+      
+      const totalSize = bucketOrders.reduce((sum, order) => sum + order.size, 0);
+      const displayPrice = type === 'ask' ? bucketMax : bucketMin;
+      const percentFromMid = Math.abs((displayPrice - midPrice) / midPrice) * 100;
+      
+      buckets.push({
+        price: displayPrice,
+        size: totalSize,
+        total: 0,
+        percentage: percentFromMid
+      });
     }
     
-    // Sum sizes for this bucket
-    const totalSize = bucketOrders.reduce((sum, order) => sum + order.size, 0);
-    
-    // Use the last order's price in the bucket as the display price
-    const lastOrder = bucketOrders[bucketOrders.length - 1];
-    const bucketPrice = lastOrder.price;
-    const percentFromMid = Math.abs((bucketPrice - midPrice) / midPrice) * 100;
-    
-    buckets.push({
-      price: bucketPrice,
-      size: totalSize,
-      total: 0, // Will be calculated below
-      percentage: percentFromMid
+    // Calculate running totals
+    let runningTotal = 0;
+    buckets.forEach(bucket => {
+      runningTotal += bucket.size;
+      bucket.total = runningTotal;
     });
+    
+    return buckets;
+  } else {
+    // Orders span wide range - use traditional percentage buckets
+    const buckets: DepthBucket[] = [];
+    
+    for (let i = 1; i <= BUCKET_COUNT; i++) {
+      const pct = i * percentIncrement / 100;
+      const bucketPrice = type === 'ask' ? midPrice * (1 + pct) : midPrice * (1 - pct);
+      const prevPct = (i - 1) * percentIncrement / 100;
+      const prevPrice = type === 'ask' ? midPrice * (1 + prevPct) : midPrice * (1 - prevPct);
+      
+      // Find orders in this percentage range
+      const bucketOrders = orders.filter(o => {
+        return type === 'ask'
+          ? (o.price > prevPrice && o.price <= bucketPrice)
+          : (o.price < prevPrice && o.price >= bucketPrice);
+      });
+      
+      if (bucketOrders.length === 0) continue;
+      
+      const totalSize = bucketOrders.reduce((sum, order) => sum + order.size, 0);
+      
+      buckets.push({
+        price: bucketPrice,
+        size: totalSize,
+        total: 0,
+        percentage: i * percentIncrement
+      });
+    }
+    
+    // Calculate running totals
+    let runningTotal = 0;
+    buckets.forEach(bucket => {
+      runningTotal += bucket.size;
+      bucket.total = runningTotal;
+    });
+    
+    return buckets;
   }
-  
-  // Calculate running totals (cumulative volume)
-  let runningTotal = 0;
-  buckets.forEach(bucket => {
-    runningTotal += bucket.size;
-    bucket.total = runningTotal;
-  });
-  
-  return buckets;
 }
 
 export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }: OrderBookWidgetProps) {

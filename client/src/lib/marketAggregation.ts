@@ -126,16 +126,16 @@ export function aggregateOrderBook(
     .sort(([a], [b]) => a - b) // Lowest first
     .slice(0, 25);
 
-  // Calculate totals
+  // Calculate totals (cumulative size, not USD value)
   let bidTotal = 0;
   const bids = sortedBids.map(([price, { size }]) => {
-    bidTotal += price * size;
+    bidTotal += size;
     return { price, size, total: bidTotal };
   });
 
   let askTotal = 0;
   const asks = sortedAsks.map(([price, { size }]) => {
-    askTotal += price * size;
+    askTotal += size;
     return { price, size, total: askTotal };
   });
 
