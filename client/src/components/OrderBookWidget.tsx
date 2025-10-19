@@ -48,54 +48,56 @@ interface DepthBucket {
   percentage: number; // Distance from mid in %
 }
 
-// Create percentage-based depth buckets
+// Create depth buckets by distributing received orders evenly
 function createDepthBuckets(
   orders: OrderBookEntry[],
   midPrice: number,
   percentIncrement: number,
   type: 'bid' | 'ask'
 ): DepthBucket[] {
-  // Create 10 fixed buckets based on percentage ranges from mid
-  const buckets: DepthBucket[] = [];
-  
-  for (let i = 1; i <= BUCKET_COUNT; i++) {
-    const pct = i * percentIncrement / 100; // Convert to decimal
-    const price = type === 'ask' 
-      ? midPrice * (1 + pct)  // Asks go up
-      : midPrice * (1 - pct); // Bids go down
-    
-    buckets.push({
-      price,
-      size: 0,
-      total: 0,
-      percentage: i * percentIncrement
+  // If no orders, return empty buckets
+  if (orders.length === 0) {
+    return Array.from({ length: BUCKET_COUNT }, (_, i) => {
+      const pct = (i + 1) * percentIncrement / 100;
+      const price = type === 'ask' ? midPrice * (1 + pct) : midPrice * (1 - pct);
+      return { price, size: 0, total: 0, percentage: (i + 1) * percentIncrement };
     });
   }
   
-  // Aggregate ALL orders into their respective percentage range buckets
-  orders.forEach(order => {
-    // Calculate how far this order is from mid price (in percentage)
-    const orderPct = Math.abs((order.price - midPrice) / midPrice) * 100;
-    
-    // Determine which bucket range this order falls into
-    // Bucket 0 covers 0% to percentIncrement%
-    // Bucket 1 covers percentIncrement% to 2*percentIncrement%
-    // etc.
-    let bucketIndex = Math.ceil(orderPct / percentIncrement) - 1;
-    
-    // Clamp to valid bucket range
-    bucketIndex = Math.max(0, Math.min(bucketIndex, BUCKET_COUNT - 1));
-    
-    // Add this order's size to the bucket
-    if (bucketIndex >= 0 && bucketIndex < BUCKET_COUNT) {
-      buckets[bucketIndex].size += order.size;
-    }
-  });
+  // Distribute orders evenly across 10 buckets
+  const ordersPerBucket = Math.ceil(orders.length / BUCKET_COUNT);
+  const buckets: DepthBucket[] = [];
   
-  // Calculate running totals (cumulative volume in base currency)
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const startIdx = i * ordersPerBucket;
+    const endIdx = Math.min(startIdx + ordersPerBucket, orders.length);
+    const bucketOrders = orders.slice(startIdx, endIdx);
+    
+    // Skip empty buckets (can happen with the last bucket if not enough orders)
+    if (bucketOrders.length === 0) {
+      continue;
+    }
+    
+    // Sum sizes for this bucket
+    const totalSize = bucketOrders.reduce((sum, order) => sum + order.size, 0);
+    
+    // Use the last order's price in the bucket as the display price
+    const lastOrder = bucketOrders[bucketOrders.length - 1];
+    const bucketPrice = lastOrder.price;
+    const percentFromMid = Math.abs((bucketPrice - midPrice) / midPrice) * 100;
+    
+    buckets.push({
+      price: bucketPrice,
+      size: totalSize,
+      total: 0, // Will be calculated below
+      percentage: percentFromMid
+    });
+  }
+  
+  // Calculate running totals (cumulative volume)
   let runningTotal = 0;
   buckets.forEach(bucket => {
-    runningTotal += bucket.size; // Just sum the sizes
+    runningTotal += bucket.size;
     bucket.total = runningTotal;
   });
   
