@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Star, Search, Clock, Bookmark as BookmarkIcon, Copy, Check, Info } from "lucide-react";
+import { Star, Search, Clock, Bookmark as BookmarkIcon, Copy, Check, Info, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { parseWebhookPayload } from "@/lib/webhookParser";
 
 export interface WebhookMessage {
   id: string;
@@ -19,6 +20,7 @@ export interface WebhookMessage {
   message: string;
   timestamp: Date;
   bookmarked: boolean;
+  payload?: any;
 }
 
 interface WebhookWidgetProps {
@@ -32,7 +34,20 @@ export default function WebhookWidget({ messages, onToggleBookmark }: WebhookWid
   const [showBookmarked, setShowBookmarked] = useState(false);
   const [showWebhookInfo, setShowWebhookInfo] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleMessageExpanded = (messageId: string) => {
+    setExpandedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  };
 
   // Get the webhook URL
   const webhookUrl = `${window.location.origin}/api/webhook`;
@@ -206,42 +221,102 @@ export default function WebhookWidget({ messages, onToggleBookmark }: WebhookWid
             No messages found
           </div>
         ) : (
-          filteredMessages.map((msg) => (
-            <div
-              key={msg.id}
-              className="p-3 bg-accent/30 rounded-lg border-l-4 border-primary relative group hover-elevate"
-              data-testid={`webhook-message-${msg.id}`}
-            >
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => onToggleBookmark?.(msg.id)}
-                className={cn(
-                  "absolute top-2 right-2 h-6 w-6",
-                  msg.bookmarked && "text-bookmark"
-                )}
-                data-testid={`button-bookmark-${msg.id}`}
+          filteredMessages.map((msg) => {
+            const parsed = parseWebhookPayload(msg.source, msg.message, msg.payload);
+            const isExpanded = expandedMessages.has(msg.id);
+            const hasDetails = parsed.details && parsed.details.length > 0;
+
+            return (
+              <div
+                key={msg.id}
+                className="p-3 bg-accent/30 rounded-lg border-l-4 border-primary relative group hover-elevate"
+                data-testid={`webhook-message-${msg.id}`}
               >
-                <Star className={cn("h-3 w-3", msg.bookmarked && "fill-current")} />
-              </Button>
-              
-              <div className="flex items-start gap-2 mb-2">
-                <Badge variant="outline" className="text-xs">
-                  {msg.source}
-                </Badge>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto mr-8">
-                  <Clock className="h-3 w-3" />
-                  <span className="font-mono">
-                    {format(new Date(msg.timestamp), 'HH:mm:ss')}
-                  </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onToggleBookmark?.(msg.id)}
+                  className={cn(
+                    "absolute top-2 right-2 h-6 w-6",
+                    msg.bookmarked && "text-bookmark"
+                  )}
+                  data-testid={`button-bookmark-${msg.id}`}
+                >
+                  <Star className={cn("h-3 w-3", msg.bookmarked && "fill-current")} />
+                </Button>
+                
+                <div className="flex items-start gap-2 mb-2">
+                  <Badge variant="outline" className="text-xs">
+                    {msg.source}
+                  </Badge>
+                  {parsed.type === 'blockchain_transfer' && (
+                    <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/40">
+                      Transfer
+                    </Badge>
+                  )}
+                  {parsed.type === 'alert' && (
+                    <Badge variant="default" className="text-xs bg-destructive/20 text-destructive border-destructive/40">
+                      Alert
+                    </Badge>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto mr-8">
+                    <Clock className="h-3 w-3" />
+                    <span className="font-mono">
+                      {format(new Date(msg.timestamp), 'HH:mm:ss')}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="pr-8">
+                  <p className={cn(
+                    "text-sm text-foreground",
+                    !isExpanded && "line-clamp-2"
+                  )}>
+                    {parsed.displayMessage}
+                  </p>
+
+                  {hasDetails && (
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleMessageExpanded(msg.id)}
+                        className="h-6 px-2 text-xs gap-1 -ml-2"
+                        data-testid={`button-expand-${msg.id}`}
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronDown className="h-3 w-3" />
+                            Hide Details
+                          </>
+                        ) : (
+                          <>
+                            <ChevronRight className="h-3 w-3" />
+                            Show Details
+                          </>
+                        )}
+                      </Button>
+
+                      {isExpanded && parsed.details && (
+                        <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-border" data-testid={`details-${msg.id}`}>
+                          {parsed.details.map((detail, idx) => (
+                            <div key={idx} className="flex gap-2 text-xs">
+                              <span className="text-muted-foreground font-medium min-w-[80px]">
+                                {detail.label}:
+                              </span>
+                              <span className="text-foreground font-mono break-all">
+                                {detail.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <p className="text-sm text-foreground pr-8 line-clamp-2">
-                {msg.message}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </Card>
