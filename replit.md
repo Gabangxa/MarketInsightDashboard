@@ -72,11 +72,13 @@ Preferred communication style: Simple, everyday language.
   - UI displays "Triggers: X / Y" or "Triggers: X (unlimited)"
 - **Alert Monitoring:**
   - `useAlertMonitor` hook checks alerts on every market data update
+  - 5-second cooldown period prevents rapid re-triggering (implemented Oct 20, 2025)
   - Skips alerts that have reached their trigger limit
   - Increments triggerCount on each trigger
   - Marks alert as triggered=true only when limit is reached
   - Custom styled toast notifications when alerts trigger (implemented Oct 19, 2025)
   - Alert status persisted (triggered, lastTriggered, triggerCount)
+  - Timestamp conversion fix: Converts Date strings back to Date objects before database save (Oct 20, 2025)
 - **Toast Notification Styling:**
   - Custom React components (`PriceAlertToast`, `KeywordAlertToast`)
   - Gradient backgrounds: red/orange for price alerts, blue/purple for keyword alerts

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import type { Alert } from "@shared/schema";
 import type { MarketData, WebhookMessage } from "./useMarketWebSocket";
@@ -11,6 +11,10 @@ interface AlertMonitorProps {
   newWebhook: WebhookMessage | null;
 }
 
+// Track last trigger time for each alert (5 second cooldown)
+const TRIGGER_COOLDOWN_MS = 5000;
+const lastTriggerTimes = new Map<string, number>();
+
 export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitorProps) {
   
   // Check price alerts
@@ -21,6 +25,13 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
       // Check if alert has reached max triggers
       if (alert.maxTriggers !== null && alert.triggerCount >= alert.maxTriggers) {
         return; // Skip alerts that have reached their limit
+      }
+
+      // Check cooldown period - prevent rapid re-triggering
+      const lastTrigger = lastTriggerTimes.get(alert.id);
+      const now = Date.now();
+      if (lastTrigger && now - lastTrigger < TRIGGER_COOLDOWN_MS) {
+        return; // Skip if within cooldown period
       }
 
       const symbolData = marketData.get(alert.symbol);
@@ -62,6 +73,9 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
       });
 
       if (shouldTrigger) {
+        // Set cooldown immediately to prevent duplicate triggers
+        lastTriggerTimes.set(alert.id, Date.now());
+        
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
         
@@ -107,10 +121,20 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         return; // Skip alerts that have reached their limit
       }
 
+      // Check cooldown period - prevent rapid re-triggering
+      const lastTrigger = lastTriggerTimes.get(alert.id);
+      const now = Date.now();
+      if (lastTrigger && now - lastTrigger < TRIGGER_COOLDOWN_MS) {
+        return; // Skip if within cooldown period
+      }
+
       const message = webhook.message.toLowerCase();
       const keyword = alert.keyword.toLowerCase();
 
       if (message.includes(keyword)) {
+        // Set cooldown immediately to prevent duplicate triggers
+        lastTriggerTimes.set(alert.id, Date.now());
+        
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
         
