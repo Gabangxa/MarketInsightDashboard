@@ -3,9 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Star, Search, Clock, Bookmark as BookmarkIcon } from "lucide-react";
+import { Star, Search, Clock, Bookmark as BookmarkIcon, Copy, Check, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export interface WebhookMessage {
   id: string;
@@ -24,6 +30,22 @@ export default function WebhookWidget({ messages, onToggleBookmark }: WebhookWid
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [keywordFilter, setKeywordFilter] = useState("");
   const [showBookmarked, setShowBookmarked] = useState(false);
+  const [showWebhookInfo, setShowWebhookInfo] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  // Get the webhook URL
+  const webhookUrl = `${window.location.origin}/api/webhook`;
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    toast({
+      title: "Copied!",
+      description: "Webhook URL copied to clipboard",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const getTimeFilteredMessages = () => {
     const now = new Date();
@@ -52,9 +74,65 @@ export default function WebhookWidget({ messages, onToggleBookmark }: WebhookWid
   return (
     <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-webhook">
       <div className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
-          Webhook Messages
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Webhook Messages
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowWebhookInfo(!showWebhookInfo)}
+            className="h-7 text-xs gap-1"
+            data-testid="button-toggle-webhook-info"
+          >
+            <Info className="h-3 w-3" />
+            Setup
+          </Button>
+        </div>
+
+        <Collapsible open={showWebhookInfo} onOpenChange={setShowWebhookInfo}>
+          <CollapsibleContent className="mb-4">
+            <div className="bg-accent/20 border border-accent/40 rounded-md p-3 space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Send POST requests to this URL:
+                </p>
+                <div className="flex gap-2">
+                  <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs font-mono break-all">
+                    {webhookUrl}
+                  </code>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={copyWebhookUrl}
+                    className="h-9 w-9 flex-shrink-0"
+                    data-testid="button-copy-webhook-url"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Expected JSON payload:
+                </p>
+                <code className="block bg-background border border-border rounded px-3 py-2 text-xs font-mono">
+                  {`{\n  "source": "MyService",\n  "message": "Your message here"\n}`}
+                </code>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Example cURL command:
+                </p>
+                <code className="block bg-background border border-border rounded px-3 py-2 text-xs font-mono whitespace-pre-wrap break-all">
+                  {`curl -X POST ${webhookUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"source":"Test","message":"Hello!"}'`}
+                </code>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Filters */}
         <div className="space-y-3">
