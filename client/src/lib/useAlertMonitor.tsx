@@ -79,6 +79,12 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
         
+        // CRITICAL: If limit reached, update the in-memory alert object immediately
+        // to prevent race conditions before the database update completes
+        if (reachedLimit) {
+          alert.triggered = true;
+        }
+        
         // Update alert status
         await apiRequest("PATCH", `/api/alerts/${alert.id}`, {
           triggered: reachedLimit, // Only mark as "triggered" if limit reached
@@ -137,6 +143,12 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
+        
+        // CRITICAL: If limit reached, update the in-memory alert object immediately
+        // to prevent race conditions before the database update completes
+        if (reachedLimit) {
+          alert.triggered = true;
+        }
         
         // Update alert status
         await apiRequest("PATCH", `/api/alerts/${alert.id}`, {

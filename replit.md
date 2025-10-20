@@ -76,6 +76,7 @@ Preferred communication style: Simple, everyday language.
   - Skips alerts that have reached their trigger limit
   - Increments triggerCount on each trigger
   - Marks alert as triggered=true only when limit is reached
+  - **Race condition fix** (Oct 20, 2025): Immediately updates in-memory alert object to `triggered=true` when limit reached, preventing multiple simultaneous triggers before database update completes
   - Custom styled toast notifications when alerts trigger (implemented Oct 19, 2025)
   - Alert status persisted (triggered, lastTriggered, triggerCount)
   - Timestamp conversion fix: Converts Date strings back to Date objects before database save (Oct 20, 2025)
