@@ -26,6 +26,10 @@ externalPort = 3003
 localPort = 43523
 externalPort = 3002
 
+[[ports]]
+localPort = 45991
+externalPort = 3000
+
 [env]
 PORT = "5000"
 

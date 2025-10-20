@@ -147,7 +147,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/alerts/:id", async (req, res) => {
     try {
-      const updated = await storage.updateAlert(req.params.id, req.body);
+      // Convert lastTriggered string to Date if present
+      const updates = { ...req.body };
+      if (updates.lastTriggered && typeof updates.lastTriggered === 'string') {
+        updates.lastTriggered = new Date(updates.lastTriggered);
+      }
+      
+      const updated = await storage.updateAlert(req.params.id, updates);
       res.json(updated);
     } catch (error) {
       console.error("Alert update error:", error);
