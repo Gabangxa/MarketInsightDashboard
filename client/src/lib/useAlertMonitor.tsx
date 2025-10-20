@@ -15,15 +15,44 @@ interface AlertMonitorProps {
 const TRIGGER_COOLDOWN_MS = 5000;
 const lastTriggerTimes = new Map<string, number>();
 
+// Track alerts that have reached their trigger limit (persistent across re-renders)
+const reachedLimitAlerts = new Set<string>();
+
 export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitorProps) {
+  
+  // Cleanup: Remove deleted alerts from tracking Sets
+  useEffect(() => {
+    const currentAlertIds = new Set(alerts.map(a => a.id));
+    
+    // Remove any alert IDs that no longer exist
+    Array.from(reachedLimitAlerts).forEach(alertId => {
+      if (!currentAlertIds.has(alertId)) {
+        reachedLimitAlerts.delete(alertId);
+        lastTriggerTimes.delete(alertId);
+      }
+    });
+    
+    // Also check if any alerts were reset (triggered changed from true to false)
+    alerts.forEach(alert => {
+      if (alert.triggered === false && reachedLimitAlerts.has(alert.id)) {
+        reachedLimitAlerts.delete(alert.id);
+      }
+    });
+  }, [alerts]);
   
   // Check price alerts
   const checkPriceAlerts = useCallback((alerts: Alert[], marketData: Map<string, Map<string, MarketData>>) => {
     alerts.forEach(async (alert) => {
       if (alert.type !== "price" || !alert.symbol || !alert.condition || !alert.value) return;
       
+      // Check if alert has already reached its limit (persistent check)
+      if (reachedLimitAlerts.has(alert.id)) {
+        return; // Skip - this alert has already reached its limit
+      }
+      
       // Check if alert has reached max triggers
       if (alert.maxTriggers !== null && alert.triggerCount >= alert.maxTriggers) {
+        reachedLimitAlerts.add(alert.id); // Mark as reached limit
         return; // Skip alerts that have reached their limit
       }
 
@@ -79,10 +108,11 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
         
-        // CRITICAL: If limit reached, update the in-memory alert object immediately
-        // to prevent race conditions before the database update completes
+        // CRITICAL: If limit reached, add to persistent Set to completely stop further triggers
+        // This prevents race conditions where fresh data from cache might have triggered=false
         if (reachedLimit) {
           alert.triggered = true;
+          reachedLimitAlerts.add(alert.id);
         }
         
         // Update alert status
@@ -122,8 +152,14 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
     alerts.forEach(async (alert) => {
       if (alert.type !== "keyword" || !alert.keyword) return;
       
+      // Check if alert has already reached its limit (persistent check)
+      if (reachedLimitAlerts.has(alert.id)) {
+        return; // Skip - this alert has already reached its limit
+      }
+      
       // Check if alert has reached max triggers
       if (alert.maxTriggers !== null && alert.triggerCount >= alert.maxTriggers) {
+        reachedLimitAlerts.add(alert.id); // Mark as reached limit
         return; // Skip alerts that have reached their limit
       }
 
@@ -144,10 +180,11 @@ export function useAlertMonitor({ alerts, marketData, newWebhook }: AlertMonitor
         const newTriggerCount = alert.triggerCount + 1;
         const reachedLimit = alert.maxTriggers !== null && newTriggerCount >= alert.maxTriggers;
         
-        // CRITICAL: If limit reached, update the in-memory alert object immediately
-        // to prevent race conditions before the database update completes
+        // CRITICAL: If limit reached, add to persistent Set to completely stop further triggers
+        // This prevents race conditions where fresh data from cache might have triggered=false
         if (reachedLimit) {
           alert.triggered = true;
+          reachedLimitAlerts.add(alert.id);
         }
         
         // Update alert status
