@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TrendingUp, CandlestickChart, LineChart } from "lucide-react";
 
 interface ChartConfigModalProps {
@@ -23,10 +23,12 @@ interface ChartConfigModalProps {
   currentSymbol: string;
   currentTimeframe: string;
   currentChartType: "candlestick" | "line";
+  currentPeriod: string;
   onSave: (config: {
     symbol: string;
     timeframe: string;
     chartType: "candlestick" | "line";
+    period: string;
   }) => void;
 }
 
@@ -36,14 +38,26 @@ export default function ChartConfigModal({
   currentSymbol,
   currentTimeframe,
   currentChartType,
+  currentPeriod,
   onSave,
 }: ChartConfigModalProps) {
   const [symbol, setSymbol] = useState(currentSymbol);
   const [timeframe, setTimeframe] = useState(currentTimeframe);
   const [chartType, setChartType] = useState<"candlestick" | "line">(currentChartType);
+  const [period, setPeriod] = useState(currentPeriod);
+
+  // Sync state with props when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSymbol(currentSymbol);
+      setTimeframe(currentTimeframe);
+      setChartType(currentChartType);
+      setPeriod(currentPeriod);
+    }
+  }, [isOpen, currentSymbol, currentTimeframe, currentChartType, currentPeriod]);
 
   const handleSave = () => {
-    onSave({ symbol, timeframe, chartType });
+    onSave({ symbol, timeframe, chartType, period });
     onClose();
   };
 
@@ -65,6 +79,14 @@ export default function ChartConfigModal({
     "XRPUSDT",
     "DOTUSDT",
     "DOGEUSDT",
+  ];
+
+  const periods = [
+    { value: "1h", label: "1 Hour" },
+    { value: "4h", label: "4 Hours" },
+    { value: "24h", label: "24 Hours" },
+    { value: "1w", label: "1 Week" },
+    { value: "1M", label: "1 Month" },
   ];
 
   return (
@@ -107,6 +129,22 @@ export default function ChartConfigModal({
                 {timeframes.map((tf) => (
                   <SelectItem key={tf.value} value={tf.value} data-testid={`option-timeframe-${tf.value}`}>
                     {tf.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="period">Period</Label>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger id="period" data-testid="select-chart-period">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                {periods.map((p) => (
+                  <SelectItem key={p.value} value={p.value} data-testid={`option-period-${p.value}`}>
+                    {p.label}
                   </SelectItem>
                 ))}
               </SelectContent>

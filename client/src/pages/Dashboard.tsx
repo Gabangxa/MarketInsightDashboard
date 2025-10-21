@@ -18,6 +18,7 @@ import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
 import { CandleAggregator } from "@/lib/candleAggregator";
+import { fetchHistoricalCandles } from "@/lib/fetchHistoricalCandles";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
@@ -36,6 +37,7 @@ export default function Dashboard() {
   const [chartSymbol, setChartSymbol] = useState("BTCUSDT");
   const [chartTimeframe, setChartTimeframe] = useState("5m");
   const [chartType, setChartType] = useState<"candlestick" | "line">("candlestick");
+  const [chartPeriod, setChartPeriod] = useState("24h");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
   
@@ -240,6 +242,34 @@ export default function Dashboard() {
     };
   }, [chartSymbol, selectedExchanges, subscribe, unsubscribe, selectedSymbol, watchlistTokens]);
 
+  // Fetch historical candles when chart config changes
+  useEffect(() => {
+    const loadHistoricalData = async () => {
+      try {
+        // Map selected exchanges to lowercase names for API
+        const exchangeNames = selectedExchanges.map(e => e.toLowerCase());
+        const historicalCandles = await fetchHistoricalCandles(
+          chartSymbol,
+          chartTimeframe,
+          chartPeriod,
+          exchangeNames
+        );
+        
+        // Sort by timestamp and create new Map to trigger React state change
+        const sortedHistorical = new Map(
+          Array.from(historicalCandles.entries()).sort((a, b) => a[0] - b[0])
+        );
+        
+        // Replace candles with historical data
+        setChartCandles(sortedHistorical);
+      } catch (error) {
+        console.error("Failed to fetch historical candles:", error);
+      }
+    };
+
+    loadHistoricalData();
+  }, [chartSymbol, chartTimeframe, chartPeriod, selectedExchanges]);
+
   // Aggregate market data into candles for chart
   useEffect(() => {
     const symbolData = marketData.get(chartSymbol);
@@ -255,8 +285,18 @@ export default function Dashboard() {
       aggregated.volume24hUSDT
     );
 
-    // Update chart candles state
-    setChartCandles(candleAggregatorRef.current.getCandles());
+    // Update chart candles state - merge real-time with historical by creating new Map
+    const realtimeCandles = candleAggregatorRef.current.getCandles();
+    setChartCandles((prevCandles) => {
+      // Create new Map starting with historical data
+      const merged = new Map(prevCandles);
+      // Add or update with real-time candles
+      realtimeCandles.forEach((candle, timestamp) => {
+        merged.set(timestamp, candle);
+      });
+      // Sort by timestamp and return new Map
+      return new Map(Array.from(merged.entries()).sort((a, b) => a[0] - b[0]));
+    });
   }, [marketData, chartSymbol]);
 
   // Optimized "best fit" layout for trading dashboard
@@ -494,12 +534,14 @@ export default function Dashboard() {
         currentSymbol={chartSymbol}
         currentTimeframe={chartTimeframe}
         currentChartType={chartType}
+        currentPeriod={chartPeriod}
         onSave={(config) => {
           setChartSymbol(config.symbol);
           setChartTimeframe(config.timeframe);
           setChartType(config.chartType);
-          // Clear candles when changing symbol or timeframe
-          if (config.symbol !== chartSymbol || config.timeframe !== chartTimeframe) {
+          setChartPeriod(config.period);
+          // Clear candles when changing symbol, timeframe, or period
+          if (config.symbol !== chartSymbol || config.timeframe !== chartTimeframe || config.period !== chartPeriod) {
             if (candleAggregatorRef.current) {
               candleAggregatorRef.current.clear();
             }
