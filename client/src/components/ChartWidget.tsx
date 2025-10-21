@@ -55,6 +55,10 @@ export default function ChartWidget({
       rightPriceScale: {
         borderColor: "#374151",
       },
+    } as any);
+
+    // Add watermark after chart creation
+    chart.applyOptions({
       watermark: {
         visible: true,
         fontSize: 14,
@@ -63,7 +67,7 @@ export default function ChartWidget({
         color: "rgba(156, 163, 175, 0.3)",
         text: "Powered by TradingView",
       },
-    });
+    } as any);
 
     chartRef.current = chart;
 

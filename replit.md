@@ -27,12 +27,13 @@ Preferred communication style: Simple, everyday language.
 
 **Widget System:**
 - Drag-and-drop dashboard layout using react-grid-layout
-- Five core widget types:
+- Six core widget types:
   - Market Data Widget: Real-time price, 24h change, volume display
   - Order Book Widget: Aggregated bid/ask depth visualization
   - Watchlist Widget: Token tracking with add/remove functionality
   - Alerts Widget: Price and keyword alert configuration
   - Webhook Widget: External message monitoring with filtering
+  - Chart Widget: TradingView lightweight-charts integration with historical + real-time data (Oct 21, 2025)
 - Responsive grid layout with persistent positioning via database storage
 - **Optimized "Best Fit" Default Layout:**
   - Large screens (1200px+): 3-column trading terminal layout
@@ -95,6 +96,31 @@ Preferred communication style: Simple, everyday language.
   - Alerts require the symbol to be in the watchlist or actively monitored
   - Example: BTCUSDT alert works (default symbol), but ETHUSDT alert won't work unless ETHUSDT is added to watchlist first
   - This is by design to avoid unnecessary WebSocket connections
+
+**Chart Widget & Historical Data (implemented Oct 21, 2025):**
+- **Chart Library:** TradingView's lightweight-charts v4+ with official attribution watermark
+- **Chart Types:** Candlestick and Line charts with smooth type transitions
+- **Timeframes:** 1 minute, 5 minutes, 15 minutes, 1 hour, 4 hours, 1 day
+- **Historical Data Fetching:**
+  - On-demand REST API calls to Binance, Bybit, and OKX exchanges
+  - `fetchHistoricalCandles()` utility aggregates OHLC data from multiple exchanges
+  - Period selector: 1 hour, 4 hours, 24 hours, 1 week, 1 month
+  - Dynamic candle count calculation based on period and timeframe
+  - Historical data loads on component mount and configuration changes
+- **Real-Time Integration:**
+  - `CandleAggregator` class converts WebSocket tick data to OHLC candles across multiple timeframes
+  - Historical candles merge with real-time updates via sorted Map<timestamp, Candle> instances
+  - **Critical Map mutation fix (Oct 21):** Clone and sort Map instances before setState to trigger React updates
+  - Real-time candles overlay on historical data without overriding past price action
+- **Configuration Modal:**
+  - `ChartConfigModal` allows changing symbol, timeframe, chart type, and historical period
+  - Centered shadcn Dialog component with symbol/timeframe/period/type selectors
+  - Triggers historical data refetch when configuration changes
+- **Data Flow:**
+  1. Dashboard mounts → `fetchHistoricalCandles(symbol, timeframe, period, exchanges)`
+  2. Exchange REST APIs → Returns Map<timestamp, Candle> → Sort by timestamp → setState
+  3. Real-time WebSocket ticks → CandleAggregator → Merge with historical (sorted)
+  4. ChartWidget receives combined dataset → Renders via lightweight-charts API
 
 ### Backend Architecture
 

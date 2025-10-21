@@ -244,16 +244,26 @@ export default function Dashboard() {
 
   // Fetch historical candles when chart config changes
   useEffect(() => {
+    console.log("[Dashboard] Historical fetch effect triggered", {
+      symbol: chartSymbol,
+      timeframe: chartTimeframe,
+      period: chartPeriod,
+      exchanges: selectedExchanges
+    });
+
     const loadHistoricalData = async () => {
       try {
         // Map selected exchanges to lowercase names for API
         const exchangeNames = selectedExchanges.map(e => e.toLowerCase());
+        console.log("[Dashboard] Starting historical fetch...");
         const historicalCandles = await fetchHistoricalCandles(
           chartSymbol,
           chartTimeframe,
           chartPeriod,
           exchangeNames
         );
+        
+        console.log("[Dashboard] Historical fetch completed, candles:", historicalCandles.size);
         
         // Sort by timestamp and create new Map to trigger React state change
         const sortedHistorical = new Map(
@@ -262,8 +272,9 @@ export default function Dashboard() {
         
         // Replace candles with historical data
         setChartCandles(sortedHistorical);
+        console.log("[Dashboard] Chart candles state updated");
       } catch (error) {
-        console.error("Failed to fetch historical candles:", error);
+        console.error("[Dashboard] Failed to fetch historical candles:", error);
       }
     };
 
