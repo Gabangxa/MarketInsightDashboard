@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,13 @@ import AlertConfigPanel from "@/components/AlertConfigPanel";
 import WatchlistWidget from "@/components/WatchlistWidget";
 import OrderBookConfigModal from "@/components/OrderBookConfigModal";
 import MarketDataConfigModal from "@/components/MarketDataConfigModal";
+import ChartWidget from "@/components/ChartWidget";
+import ChartConfigModal from "@/components/ChartConfigModal";
 import { Toaster } from "react-hot-toast";
 import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
+import { CandleAggregator } from "@/lib/candleAggregator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
@@ -27,10 +30,18 @@ export default function Dashboard() {
   const [editingAlert, setEditingAlert] = useState<AlertWidgetType | null>(null);
   const [isMarketConfigOpen, setIsMarketConfigOpen] = useState(false);
   const [isOrderBookConfigOpen, setIsOrderBookConfigOpen] = useState(false);
+  const [isChartConfigOpen, setIsChartConfigOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
   const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
+  const [chartSymbol, setChartSymbol] = useState("BTCUSDT");
+  const [chartTimeframe, setChartTimeframe] = useState("5m");
+  const [chartType, setChartType] = useState<"candlestick" | "line">("candlestick");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
+  
+  // Candle aggregator for chart
+  const candleAggregatorRef = useRef<CandleAggregator | null>(null);
+  const [chartCandles, setChartCandles] = useState(new Map());
 
   // WebSocket connection
   const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
@@ -208,6 +219,46 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
+  // Initialize candle aggregator
+  useEffect(() => {
+    if (!candleAggregatorRef.current) {
+      candleAggregatorRef.current = new CandleAggregator(chartTimeframe);
+    } else if (candleAggregatorRef.current.getTimeframe() !== chartTimeframe) {
+      candleAggregatorRef.current.setTimeframe(chartTimeframe);
+      setChartCandles(new Map());
+    }
+  }, [chartTimeframe]);
+
+  // Subscribe to chart symbol
+  useEffect(() => {
+    subscribe(chartSymbol, selectedExchanges);
+    return () => {
+      // Don't unsubscribe if the symbol is also in watchlist or selected
+      if (chartSymbol !== selectedSymbol && !watchlistTokens.some(t => t.symbol === chartSymbol)) {
+        unsubscribe(chartSymbol);
+      }
+    };
+  }, [chartSymbol, selectedExchanges, subscribe, unsubscribe, selectedSymbol, watchlistTokens]);
+
+  // Aggregate market data into candles for chart
+  useEffect(() => {
+    const symbolData = marketData.get(chartSymbol);
+    if (!symbolData || !candleAggregatorRef.current) return;
+
+    const aggregated = aggregateMarketData(chartSymbol, symbolData);
+    if (!aggregated) return;
+
+    // Add tick to candle aggregator
+    candleAggregatorRef.current.addTick(
+      Date.now(),
+      aggregated.price,
+      aggregated.volume24hUSDT
+    );
+
+    // Update chart candles state
+    setChartCandles(candleAggregatorRef.current.getCandles());
+  }, [marketData, chartSymbol]);
+
   // Optimized "best fit" layout for trading dashboard
   // Large screens: 3-column layout (Watchlist | Market+OrderBook | Webhooks+Alerts)
   // Medium screens: 2-column layout with stacking
@@ -220,6 +271,8 @@ export default function Dashboard() {
       { i: "market-1", x: 3, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
       // Order Book: Below market data, taller for full bid/ask display
       { i: "orderbook-1", x: 3, y: 3, w: 4, h: 5, minW: 3, minH: 4 },
+      // Chart: Bottom center, below order book
+      { i: "chart-1", x: 3, y: 8, w: 4, h: 5, minW: 3, minH: 4 },
       // Webhook Messages: Right column, tall
       { i: "webhook-1", x: 7, y: 0, w: 5, h: 5, minW: 3, minH: 4 },
       // Alerts: Bottom right, compact
@@ -230,16 +283,18 @@ export default function Dashboard() {
       { i: "watchlist-1", x: 0, y: 0, w: 5, h: 6, minW: 3, minH: 4 },
       { i: "market-1", x: 5, y: 0, w: 5, h: 3, minW: 3, minH: 2 },
       { i: "orderbook-1", x: 5, y: 3, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "webhook-1", x: 0, y: 6, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 5, y: 8, w: 5, h: 3, minW: 4, minH: 2 },
+      { i: "chart-1", x: 0, y: 6, w: 5, h: 5, minW: 3, minH: 4 },
+      { i: "webhook-1", x: 5, y: 8, w: 5, h: 5, minW: 3, minH: 4 },
+      { i: "alerts-1", x: 0, y: 11, w: 5, h: 3, minW: 4, minH: 2 },
     ],
     sm: [
       // Small screens: Single column, prioritize trading widgets
       { i: "market-1", x: 0, y: 0, w: 6, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 0, y: 3, w: 6, h: 5, minW: 3, minH: 4 },
-      { i: "watchlist-1", x: 0, y: 8, w: 6, h: 6, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 0, y: 14, w: 6, h: 3, minW: 4, minH: 2 },
-      { i: "webhook-1", x: 0, y: 17, w: 6, h: 5, minW: 3, minH: 4 },
+      { i: "chart-1", x: 0, y: 3, w: 6, h: 5, minW: 3, minH: 4 },
+      { i: "orderbook-1", x: 0, y: 8, w: 6, h: 5, minW: 3, minH: 4 },
+      { i: "watchlist-1", x: 0, y: 13, w: 6, h: 6, minW: 3, minH: 4 },
+      { i: "alerts-1", x: 0, y: 19, w: 6, h: 3, minW: 4, minH: 2 },
+      { i: "webhook-1", x: 0, y: 22, w: 6, h: 5, minW: 3, minH: 4 },
     ],
   });
 
@@ -333,6 +388,15 @@ export default function Dashboard() {
               }}
             />
           </div>
+          <div key="chart-1" className="h-full">
+            <ChartWidget
+              symbol={chartSymbol}
+              timeframe={chartTimeframe}
+              chartType={chartType}
+              priceData={chartCandles}
+              onConfigure={() => setIsChartConfigOpen(true)}
+            />
+          </div>
           <div key="webhook-1" className="h-full">
             <WebhookWidget
               messages={webhookMessages.map(wh => ({
@@ -422,6 +486,26 @@ export default function Dashboard() {
         onViewModeChange={setOrderBookViewMode}
         selectedExchanges={selectedExchanges}
         onExchangesChange={setSelectedExchanges}
+      />
+
+      <ChartConfigModal
+        isOpen={isChartConfigOpen}
+        onClose={() => setIsChartConfigOpen(false)}
+        currentSymbol={chartSymbol}
+        currentTimeframe={chartTimeframe}
+        currentChartType={chartType}
+        onSave={(config) => {
+          setChartSymbol(config.symbol);
+          setChartTimeframe(config.timeframe);
+          setChartType(config.chartType);
+          // Clear candles when changing symbol or timeframe
+          if (config.symbol !== chartSymbol || config.timeframe !== chartTimeframe) {
+            if (candleAggregatorRef.current) {
+              candleAggregatorRef.current.clear();
+            }
+            setChartCandles(new Map());
+          }
+        }}
       />
     </div>
   );
