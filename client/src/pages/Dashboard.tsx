@@ -244,26 +244,16 @@ export default function Dashboard() {
 
   // Fetch historical candles when chart config changes
   useEffect(() => {
-    console.log("[Dashboard] Historical fetch effect triggered", {
-      symbol: chartSymbol,
-      timeframe: chartTimeframe,
-      period: chartPeriod,
-      exchanges: selectedExchanges
-    });
-
     const loadHistoricalData = async () => {
       try {
         // Map selected exchanges to lowercase names for API
         const exchangeNames = selectedExchanges.map(e => e.toLowerCase());
-        console.log("[Dashboard] Starting historical fetch...");
         const historicalCandles = await fetchHistoricalCandles(
           chartSymbol,
           chartTimeframe,
           chartPeriod,
           exchangeNames
         );
-        
-        console.log("[Dashboard] Historical fetch completed, candles:", historicalCandles.size);
         
         // Sort by timestamp and create new Map to trigger React state change
         const sortedHistorical = new Map(
@@ -272,9 +262,8 @@ export default function Dashboard() {
         
         // Replace candles with historical data
         setChartCandles(sortedHistorical);
-        console.log("[Dashboard] Chart candles state updated");
       } catch (error) {
-        console.error("[Dashboard] Failed to fetch historical candles:", error);
+        console.error("Failed to fetch historical candles:", error);
       }
     };
 
@@ -296,17 +285,16 @@ export default function Dashboard() {
       aggregated.volume24hUSDT
     );
 
-    // Update chart candles state - merge real-time with historical by creating new Map
+    // Update chart candles state - merge real-time with historical
     const realtimeCandles = candleAggregatorRef.current.getCandles();
     setChartCandles((prevCandles) => {
       // Create new Map starting with historical data
       const merged = new Map(prevCandles);
-      // Add or update with real-time candles
+      // Add or update with real-time candles (they're already in chronological order)
       realtimeCandles.forEach((candle, timestamp) => {
         merged.set(timestamp, candle);
       });
-      // Sort by timestamp and return new Map
-      return new Map(Array.from(merged.entries()).sort((a, b) => a[0] - b[0]));
+      return merged;
     });
   }, [marketData, chartSymbol]);
 
