@@ -55,6 +55,14 @@ export default function ChartWidget({
       rightPriceScale: {
         borderColor: "#374151",
       },
+      watermark: {
+        visible: true,
+        fontSize: 14,
+        horzAlign: "right",
+        vertAlign: "bottom",
+        color: "rgba(156, 163, 175, 0.3)",
+        text: "Powered by TradingView",
+      },
     });
 
     chartRef.current = chart;
