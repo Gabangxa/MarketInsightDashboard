@@ -158,51 +158,112 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
   const [percentIncrement, setPercentIncrement] = useState("0.1");
   const incrementValue = parseFloat(percentIncrement);
 
-  // Calculate mid price and create percentage-based buckets  
-  // CSS transitions handle visual smoothness, no throttling needed
-  const { displayAsks, displayBids, maxTotal, midPrice } = useMemo(() => {
+  // Simplified and more reliable order book processing
+  const { displayAsks, displayBids, maxTotal, midPrice, spread, spreadPercent } = useMemo(() => {
+    console.log(`[OrderBookWidget] Processing order book data:`, {
+      symbol: data.symbol,
+      bidsCount: data.bids?.length || 0,
+      asksCount: data.asks?.length || 0,
+      viewMode
+    });
+
+    // Ensure we have valid data
+    if (!data.bids?.length || !data.asks?.length) {
+      console.log(`[OrderBookWidget] Insufficient data - bids: ${data.bids?.length}, asks: ${data.asks?.length}`);
+      return {
+        displayAsks: [],
+        displayBids: [],
+        maxTotal: 1,
+        midPrice: 0,
+        spread: 0,
+        spreadPercent: 0
+      };
+    }
+
     // Calculate mid price from best bid and ask
     const bestBid = data.bids[0]?.price || 0;
     const bestAsk = data.asks[0]?.price || 0;
     const mid = (bestBid + bestAsk) / 2;
+    const currentSpread = bestAsk - bestBid;
+    const currentSpreadPercent = mid > 0 ? (currentSpread / mid) * 100 : 0;
     
+    console.log(`[OrderBookWidget] Price info:`, {
+      bestBid,
+      bestAsk,
+      mid,
+      spread: currentSpread,
+      spreadPercent: currentSpreadPercent
+    });
+
     if (!mid || !bestBid || !bestAsk) {
       return {
         displayAsks: [],
         displayBids: [],
         maxTotal: 1,
-        midPrice: 0
+        midPrice: 0,
+        spread: currentSpread,
+        spreadPercent: currentSpreadPercent
       };
     }
     
-    // Create fixed percentage buckets
-    const askBuckets = createDepthBuckets(data.asks, mid, incrementValue, 'ask');
-    const bidBuckets = createDepthBuckets(data.bids, mid, incrementValue, 'bid');
+    // Simplified approach: Take the top N levels directly from the order book
+    // This ensures both sides are always shown when data is available
+    const MAX_LEVELS = 10;
     
-    // Reverse asks for display (furthest from mid at top, closest at bottom)
-    const asksReversed = [...askBuckets].reverse();
-    
-    // Recalculate running totals in display order (top to bottom)
-    // Use cumulative SIZE (not USD value) to match bids
+    // Process asks (sorted ascending, take first N levels)
+    const topAsks = data.asks.slice(0, MAX_LEVELS).map(ask => ({
+      price: ask.price,
+      size: ask.size,
+      total: ask.total || ask.size, // Use provided total or fallback to size
+      percentage: ((ask.price - mid) / mid) * 100
+    }));
+
+    // Process bids (sorted descending, take first N levels)  
+    const topBids = data.bids.slice(0, MAX_LEVELS).map(bid => ({
+      price: bid.price,
+      size: bid.size,
+      total: bid.total || bid.size, // Use provided total or fallback to size
+      percentage: ((mid - bid.price) / mid) * 100
+    }));
+
+    // Calculate running totals if not provided
     let askRunningTotal = 0;
-    asksReversed.forEach(ask => {
+    topAsks.forEach(ask => {
       askRunningTotal += ask.size;
       ask.total = askRunningTotal;
     });
+
+    let bidRunningTotal = 0;
+    topBids.forEach(bid => {
+      bidRunningTotal += bid.size;
+      bid.total = bidRunningTotal;
+    });
+
+    // Reverse asks for display (highest price at top)
+    const asksForDisplay = [...topAsks].reverse();
     
     const max = Math.max(
-      ...asksReversed.map(a => a.total),
-      ...bidBuckets.map(b => b.total),
+      ...asksForDisplay.map(a => a.total),
+      ...topBids.map(b => b.total),
       1
     );
     
-    return {
-      displayAsks: asksReversed,
-      displayBids: bidBuckets,
+    console.log(`[OrderBookWidget] Processed data:`, {
+      asksForDisplay: asksForDisplay.length,
+      topBids: topBids.length,
       maxTotal: max,
       midPrice: mid
+    });
+    
+    return {
+      displayAsks: asksForDisplay,
+      displayBids: topBids,
+      maxTotal: max,
+      midPrice: mid,
+      spread: currentSpread,
+      spreadPercent: currentSpreadPercent
     };
-  }, [data.asks, data.bids, incrementValue]);
+  }, [data.asks, data.bids, data.symbol, viewMode]);
 
   return (
     <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-order-book">
@@ -301,8 +362,8 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
             <div className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">Spread</span>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-medium">${data.spread.toFixed(2)}</span>
-                <span className="text-muted-foreground">({data.spreadPercent.toFixed(3)}%)</span>
+                <span className="font-mono font-medium">${spread.toFixed(2)}</span>
+                <span className="text-muted-foreground">({spreadPercent.toFixed(3)}%)</span>
               </div>
             </div>
           </div>

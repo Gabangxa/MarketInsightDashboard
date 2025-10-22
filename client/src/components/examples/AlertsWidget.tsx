@@ -10,7 +10,9 @@ export default function AlertsWidgetExample() {
           exchanges: ["Binance", "Bybit"],
           condition: ">",
           value: 68000,
-          triggered: false
+          triggered: false,
+          triggerCount: 0,
+          maxTriggers: null,
         },
         {
           id: "2",
@@ -18,7 +20,9 @@ export default function AlertsWidgetExample() {
           exchanges: ["Binance"],
           keyword: "breakout",
           triggered: true,
-          lastTriggered: new Date(Date.now() - 5 * 60 * 1000)
+          lastTriggered: new Date(Date.now() - 5 * 60 * 1000),
+          triggerCount: 3,
+          maxTriggers: 5,
         }
       ]}
       onAddAlert={() => console.log('Add alert clicked')}

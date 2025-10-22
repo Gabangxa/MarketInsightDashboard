@@ -1,0 +1,425 @@
+/**
+ * Technical Indicators Library
+ * Implements popular trading indicators inspired by TradingView functionality
+ * Optimized for real-time market data processing
+ */
+
+export interface PriceData {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
+export interface IndicatorValue {
+  timestamp: number;
+  value: number;
+  signal?: 'buy' | 'sell' | 'hold';
+  metadata?: Record<string, any>;
+}
+
+export interface IndicatorResult {
+  name: string;
+  values: IndicatorValue[];
+  config: Record<string, any>;
+  lastValue?: IndicatorValue;
+}
+
+/**
+ * Simple Moving Average (SMA)
+ */
+export function calculateSMA(data: PriceData[], period: number): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    const sum = slice.reduce((acc, item) => acc + item.close, 0);
+    const sma = sum / period;
+    
+    values.push({
+      timestamp: data[i].timestamp,
+      value: sma
+    });
+  }
+  
+  return {
+    name: `SMA(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Exponential Moving Average (EMA)
+ */
+export function calculateEMA(data: PriceData[], period: number): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  const multiplier = 2 / (period + 1);
+  
+  // Start with SMA for first value
+  if (data.length >= period) {
+    const smaSlice = data.slice(0, period);
+    const sma = smaSlice.reduce((acc, item) => acc + item.close, 0) / period;
+    
+    values.push({
+      timestamp: data[period - 1].timestamp,
+      value: sma
+    });
+    
+    // Calculate EMA for remaining values
+    for (let i = period; i < data.length; i++) {
+      const ema = (data[i].close * multiplier) + (values[values.length - 1].value * (1 - multiplier));
+      values.push({
+        timestamp: data[i].timestamp,
+        value: ema
+      });
+    }
+  }
+  
+  return {
+    name: `EMA(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Relative Strength Index (RSI)
+ */
+export function calculateRSI(data: PriceData[], period: number = 14): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  
+  if (data.length < period + 1) {
+    return { name: `RSI(${period})`, values: [], config: { period } };
+  }
+  
+  // Calculate price changes
+  const changes: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    changes.push(data[i].close - data[i - 1].close);
+  }
+  
+  for (let i = period - 1; i < changes.length; i++) {
+    const slice = changes.slice(i - period + 1, i + 1);
+    
+    const gains = slice.filter(change => change > 0);
+    const losses = slice.filter(change => change < 0).map(loss => Math.abs(loss));
+    
+    const avgGain = gains.length > 0 ? gains.reduce((acc, gain) => acc + gain, 0) / period : 0;
+    const avgLoss = losses.length > 0 ? losses.reduce((acc, loss) => acc + loss, 0) / period : 0;
+    
+    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    const rsi = 100 - (100 / (1 + rs));
+    
+    // Generate signals
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    if (rsi <= 30) signal = 'buy';
+    else if (rsi >= 70) signal = 'sell';
+    
+    values.push({
+      timestamp: data[i + 1].timestamp,
+      value: rsi,
+      signal,
+      metadata: { avgGain, avgLoss, rs }
+    });
+  }
+  
+  return {
+    name: `RSI(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Moving Average Convergence Divergence (MACD)
+ */
+export function calculateMACD(data: PriceData[], fastPeriod: number = 12, slowPeriod: number = 26, signalPeriod: number = 9): IndicatorResult {
+  const fastEMA = calculateEMA(data, fastPeriod);
+  const slowEMA = calculateEMA(data, slowPeriod);
+  
+  const values: IndicatorValue[] = [];
+  
+  // Calculate MACD line (fast EMA - slow EMA)
+  const macdLine: number[] = [];
+  const timestamps: number[] = [];
+  
+  for (let i = 0; i < Math.min(fastEMA.values.length, slowEMA.values.length); i++) {
+    const macdValue = fastEMA.values[i].value - slowEMA.values[i].value;
+    macdLine.push(macdValue);
+    timestamps.push(fastEMA.values[i].timestamp);
+  }
+  
+  // Calculate Signal line (EMA of MACD line)
+  const signalLine: number[] = [];
+  if (macdLine.length >= signalPeriod) {
+    const multiplier = 2 / (signalPeriod + 1);
+    
+    // First signal value is SMA
+    const sma = macdLine.slice(0, signalPeriod).reduce((acc, val) => acc + val, 0) / signalPeriod;
+    signalLine.push(sma);
+    
+    // Subsequent values are EMA
+    for (let i = signalPeriod; i < macdLine.length; i++) {
+      const ema = (macdLine[i] * multiplier) + (signalLine[signalLine.length - 1] * (1 - multiplier));
+      signalLine.push(ema);
+    }
+  }
+  
+  // Generate final values with signals
+  const startIdx = signalPeriod - 1;
+  for (let i = 0; i < signalLine.length; i++) {
+    const macdValue = macdLine[startIdx + i];
+    const signalValue = signalLine[i];
+    const histogram = macdValue - signalValue;
+    
+    // Generate buy/sell signals based on MACD crossover
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    if (i > 0) {
+      const prevHistogram = macdLine[startIdx + i - 1] - signalLine[i - 1];
+      if (prevHistogram <= 0 && histogram > 0) signal = 'buy';
+      else if (prevHistogram >= 0 && histogram < 0) signal = 'sell';
+    }
+    
+    values.push({
+      timestamp: timestamps[startIdx + i],
+      value: macdValue,
+      signal,
+      metadata: {
+        macd: macdValue,
+        signal: signalValue,
+        histogram: histogram
+      }
+    });
+  }
+  
+  return {
+    name: `MACD(${fastPeriod},${slowPeriod},${signalPeriod})`,
+    values,
+    config: { fastPeriod, slowPeriod, signalPeriod },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Bollinger Bands
+ */
+export function calculateBollingerBands(data: PriceData[], period: number = 20, standardDeviations: number = 2): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    
+    // Calculate SMA
+    const sma = slice.reduce((acc, item) => acc + item.close, 0) / period;
+    
+    // Calculate Standard Deviation
+    const variance = slice.reduce((acc, item) => {
+      const diff = item.close - sma;
+      return acc + (diff * diff);
+    }, 0) / period;
+    
+    const stdDev = Math.sqrt(variance);
+    
+    const upperBand = sma + (standardDeviations * stdDev);
+    const lowerBand = sma - (standardDeviations * stdDev);
+    
+    const currentPrice = data[i].close;
+    
+    // Generate signals based on price relative to bands
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    if (currentPrice <= lowerBand) signal = 'buy';
+    else if (currentPrice >= upperBand) signal = 'sell';
+    
+    values.push({
+      timestamp: data[i].timestamp,
+      value: sma,
+      signal,
+      metadata: {
+        sma: sma,
+        upperBand: upperBand,
+        lowerBand: lowerBand,
+        standardDeviations: standardDeviations,
+        bandwidth: upperBand - lowerBand,
+        position: ((currentPrice - lowerBand) / (upperBand - lowerBand)) * 100 // %B indicator
+      }
+    });
+  }
+  
+  return {
+    name: `BB(${period},${standardDeviations})`,
+    values,
+    config: { period, standardDeviations },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Stochastic Oscillator
+ */
+export function calculateStochastic(data: PriceData[], kPeriod: number = 14, dPeriod: number = 3): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  const kValues: number[] = [];
+  
+  // Calculate %K
+  for (let i = kPeriod - 1; i < data.length; i++) {
+    const slice = data.slice(i - kPeriod + 1, i + 1);
+    const highestHigh = Math.max(...slice.map(d => d.high));
+    const lowestLow = Math.min(...slice.map(d => d.low));
+    const currentClose = data[i].close;
+    
+    const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+    kValues.push(k);
+  }
+  
+  // Calculate %D (SMA of %K)
+  for (let i = dPeriod - 1; i < kValues.length; i++) {
+    const dSlice = kValues.slice(i - dPeriod + 1, i + 1);
+    const d = dSlice.reduce((acc, val) => acc + val, 0) / dPeriod;
+    
+    const k = kValues[i];
+    
+    // Generate signals
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    if (k <= 20 && d <= 20) signal = 'buy';
+    else if (k >= 80 && d >= 80) signal = 'sell';
+    
+    values.push({
+      timestamp: data[kPeriod - 1 + i].timestamp,
+      value: k,
+      signal,
+      metadata: {
+        k: k,
+        d: d
+      }
+    });
+  }
+  
+  return {
+    name: `Stoch(${kPeriod},${dPeriod})`,
+    values,
+    config: { kPeriod, dPeriod },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Average True Range (ATR) - Volatility Indicator
+ */
+export function calculateATR(data: PriceData[], period: number = 14): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  const trueRanges: number[] = [];
+  
+  // Calculate True Range for each period
+  for (let i = 1; i < data.length; i++) {
+    const current = data[i];
+    const previous = data[i - 1];
+    
+    const tr1 = current.high - current.low;
+    const tr2 = Math.abs(current.high - previous.close);
+    const tr3 = Math.abs(current.low - previous.close);
+    
+    const trueRange = Math.max(tr1, tr2, tr3);
+    trueRanges.push(trueRange);
+  }
+  
+  // Calculate ATR using SMA of True Range
+  for (let i = period - 1; i < trueRanges.length; i++) {
+    const slice = trueRanges.slice(i - period + 1, i + 1);
+    const atr = slice.reduce((acc, tr) => acc + tr, 0) / period;
+    
+    values.push({
+      timestamp: data[i + 1].timestamp,
+      value: atr,
+      metadata: {
+        trueRange: trueRanges[i]
+      }
+    });
+  }
+  
+  return {
+    name: `ATR(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Williams %R
+ */
+export function calculateWilliamsR(data: PriceData[], period: number = 14): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    const highestHigh = Math.max(...slice.map(d => d.high));
+    const lowestLow = Math.min(...slice.map(d => d.low));
+    const currentClose = data[i].close;
+    
+    const williamsR = ((highestHigh - currentClose) / (highestHigh - lowestLow)) * -100;
+    
+    // Generate signals
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    if (williamsR <= -80) signal = 'buy';  // Oversold
+    else if (williamsR >= -20) signal = 'sell'; // Overbought
+    
+    values.push({
+      timestamp: data[i].timestamp,
+      value: williamsR,
+      signal,
+      metadata: {
+        highestHigh,
+        lowestLow
+      }
+    });
+  }
+  
+  return {
+    name: `Williams%R(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1]
+  };
+}
+
+/**
+ * Utility function to convert market data to PriceData format
+ */
+export function convertToPriceData(marketDataArray: any[]): PriceData[] {
+  return marketDataArray.map(data => ({
+    timestamp: new Date(data.timestamp || Date.now()).getTime(),
+    open: parseFloat(data.open || data.price || 0),
+    high: parseFloat(data.high || data.price || 0),
+    low: parseFloat(data.low || data.price || 0),
+    close: parseFloat(data.close || data.price || 0),
+    volume: parseFloat(data.volume || 0)
+  }));
+}
+
+/**
+ * Calculate all indicators for given data
+ */
+export function calculateAllIndicators(data: PriceData[]): Record<string, IndicatorResult> {
+  if (data.length < 26) {
+    return {}; // Need minimum data for most indicators
+  }
+  
+  return {
+    sma20: calculateSMA(data, 20),
+    sma50: calculateSMA(data, 50),
+    ema12: calculateEMA(data, 12),
+    ema26: calculateEMA(data, 26),
+    rsi: calculateRSI(data, 14),
+    macd: calculateMACD(data, 12, 26, 9),
+    bollingerBands: calculateBollingerBands(data, 20, 2),
+    stochastic: calculateStochastic(data, 14, 3),
+    atr: calculateATR(data, 14),
+    williamsR: calculateWilliamsR(data, 14)
+  };
+}

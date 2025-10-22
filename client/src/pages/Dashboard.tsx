@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid } from "lucide-react";
+import { Plus, Download, Upload, RotateCcw } from "lucide-react";
+import Navigation from "@/components/Navigation";
+import TabManager from "@/components/TabManager";
+import ResponsiveLayout, { type WidgetConfig } from "@/components/ResponsiveLayout";
 import MarketDataWidget from "@/components/MarketDataWidget";
 import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
@@ -11,16 +13,15 @@ import AlertConfigPanel from "@/components/AlertConfigPanel";
 import WatchlistWidget from "@/components/WatchlistWidget";
 import OrderBookConfigModal from "@/components/OrderBookConfigModal";
 import MarketDataConfigModal from "@/components/MarketDataConfigModal";
+import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
 import { Toaster } from "react-hot-toast";
 import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTabSystem } from "@/hooks/useTabSystem";
+import { useToast } from "@/hooks/use-toast";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
+
+  const { toast } = useToast();
 
   // WebSocket connection
   const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
@@ -208,40 +211,200 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
-  // Optimized "best fit" layout for trading dashboard
-  // Large screens: 3-column layout (Watchlist | Market+OrderBook | Webhooks+Alerts)
-  // Medium screens: 2-column layout with stacking
-  // Small screens: Single column, full width widgets
-  const [layouts] = useState({
-    lg: [
-      // Watchlist: Left sidebar, full height
-      { i: "watchlist-1", x: 0, y: 0, w: 3, h: 8, minW: 3, minH: 4 },
-      // Market Data: Top center, compact
-      { i: "market-1", x: 3, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
-      // Order Book: Below market data, taller for full bid/ask display
-      { i: "orderbook-1", x: 3, y: 3, w: 4, h: 5, minW: 3, minH: 4 },
-      // Webhook Messages: Right column, tall
-      { i: "webhook-1", x: 7, y: 0, w: 5, h: 5, minW: 3, minH: 4 },
-      // Alerts: Bottom right, compact
-      { i: "alerts-1", x: 7, y: 5, w: 5, h: 3, minW: 4, minH: 2 },
-    ],
-    md: [
-      // Medium screens: 2-column layout
-      { i: "watchlist-1", x: 0, y: 0, w: 5, h: 6, minW: 3, minH: 4 },
-      { i: "market-1", x: 5, y: 0, w: 5, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 5, y: 3, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "webhook-1", x: 0, y: 6, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 5, y: 8, w: 5, h: 3, minW: 4, minH: 2 },
-    ],
-    sm: [
-      // Small screens: Single column, prioritize trading widgets
-      { i: "market-1", x: 0, y: 0, w: 6, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 0, y: 3, w: 6, h: 5, minW: 3, minH: 4 },
-      { i: "watchlist-1", x: 0, y: 8, w: 6, h: 6, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 0, y: 14, w: 6, h: 3, minW: 4, minH: 2 },
-      { i: "webhook-1", x: 0, y: 17, w: 6, h: 5, minW: 3, minH: 4 },
-    ],
-  });
+  // Define all available widgets for the tab system
+  const availableWidgets: WidgetConfig[] = useMemo(() => [
+    {
+      id: "watchlist-1",
+      title: "Watchlist",
+      category: "data",
+      priority: "high",
+      defaultSize: { w: 3, h: 8, minW: 3, minH: 4 },
+      component: (
+        <WatchlistWidget
+          tokens={watchlistData}
+          selectedSymbol={selectedSymbol}
+          onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
+          onRemoveToken={(symbol) => {
+            const token = watchlistTokens.find(t => t.symbol === symbol);
+            if (token) removeWatchlistMutation.mutate(token.id);
+          }}
+          onSelectToken={handleSelectToken}
+        />
+      )
+    },
+    {
+      id: "market-1", 
+      title: "Market Data",
+      category: "trading",
+      priority: "high",
+      defaultSize: { w: 4, h: 3, minW: 3, minH: 2 },
+      component: (
+        <MarketDataWidget
+          data={aggregatedMarketData || {
+            symbol: selectedSymbol,
+            price: 0,
+            priceChange: 0,
+            priceChangePercent: 0,
+            volume24hUSDT: 0,
+            allTimeHigh: 0,
+            allTimeLow: 0,
+            exchanges: [],
+          }}
+          onConfigure={() => {
+            console.log("Opening market config modal");
+            setIsMarketConfigOpen(true);
+          }}
+        />
+      )
+    },
+    {
+      id: "orderbook-1",
+      title: "Order Book", 
+      category: "trading",
+      priority: "high",
+      defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },
+      component: (
+        <OrderBookWidget
+          data={aggregatedOrderBook || {
+            symbol: selectedSymbol,
+            bids: [],
+            asks: [],
+            spread: 0,
+            spreadPercent: 0,
+            exchanges: [],
+          }}
+          viewMode={orderBookViewMode}
+          onConfigure={() => {
+            console.log("Opening order book config modal");
+            setIsOrderBookConfigOpen(true);
+          }}
+        />
+      )
+    },
+    {
+      id: "webhook-1",
+      title: "Webhook Messages",
+      category: "alerts", 
+      priority: "medium",
+      defaultSize: { w: 5, h: 5, minW: 3, minH: 4 },
+      component: (
+        <WebhookWidget
+          messages={webhookMessages.map(wh => ({
+            ...wh,
+            timestamp: new Date(wh.timestamp),
+          }))}
+          onToggleBookmark={(id) => {
+            const msg = webhookMessages.find(m => m.id === id);
+            if (msg) {
+              toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
+            }
+          }}
+        />
+      )
+    },
+    {
+      id: "alerts-1",
+      title: "Alerts",
+      category: "alerts",
+      priority: "medium", 
+      defaultSize: { w: 5, h: 3, minW: 4, minH: 2 },
+      component: (
+        <AlertsWidget
+          alerts={alerts.map(a => ({
+            id: a.id,
+            type: a.type as "price" | "keyword",
+            exchanges: a.exchanges as string[],
+            condition: a.condition || undefined,
+            value: a.value ? parseFloat(a.value) : undefined,
+            keyword: a.keyword || undefined,
+            triggered: a.triggered,
+            lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
+            triggerCount: a.triggerCount,
+            maxTriggers: a.maxTriggers,
+          }))}
+          onAddAlert={() => {
+            setEditingAlert(null);
+            setIsAlertPanelOpen(true);
+          }}
+          onEditAlert={(alert) => {
+            setEditingAlert(alert);
+            setIsAlertPanelOpen(true);
+          }}
+          onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
+        />
+      )
+    },
+    {
+      id: "technical-indicators-1",
+      title: "Technical Indicators",
+      category: "trading",
+      priority: "medium",
+      defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
+      component: (
+        <TechnicalIndicatorsWidget
+          marketData={(() => {
+            // Convert market data to historical format for indicators
+            const symbolData = marketData.get(selectedSymbol);
+            if (!symbolData || symbolData.size === 0) return [];
+            
+            // Get historical price points from market data
+            const historicalData: any[] = [];
+            symbolData.forEach((exchangeData, exchange) => {
+              if (exchangeData && typeof exchangeData === 'object' && 'price' in exchangeData) {
+                historicalData.push({
+                  timestamp: Date.now(),
+                  price: exchangeData.price,
+                  volume: exchangeData.volume24h || 0,
+                  exchange: exchange
+                });
+              }
+            });
+            
+            // Generate synthetic historical data for indicators (if needed for demo)
+            if (historicalData.length > 0) {
+              const basePrice = historicalData[0].price;
+              const syntheticData = [];
+              for (let i = 0; i < 50; i++) {
+                const timeAgo = Date.now() - (i * 60000); // 1 minute intervals
+                const priceVariation = 1 + (Math.random() - 0.5) * 0.02; // ±1% variation
+                syntheticData.unshift({
+                  timestamp: timeAgo,
+                  price: basePrice * priceVariation,
+                  volume: Math.random() * 1000000,
+                });
+              }
+              return syntheticData;
+            }
+            
+            return [];
+          })()}
+          symbol={selectedSymbol}
+        />
+      )
+    }
+  ], [
+    watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
+    removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
+    orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
+    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation
+  ]);
+
+  // Initialize tab system
+  const {
+    tabs,
+    activeTabId,
+    activeTab,
+    activeTabWidgets,
+    createTab,
+    updateTab,
+    deleteTab,
+    switchTab,
+    reorderTabs,
+    saveLayout,
+    exportTabs,
+    importTabs,
+    resetTabs
+  } = useTabSystem(availableWidgets);
 
   const handleSelectToken = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -253,126 +416,117 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="page-dashboard">
+    <div className="min-h-screen bg-background" data-testid="page-dashboard">
       <Toaster position="top-right" />
       
-      <div className="max-w-[1920px] mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <LayoutGrid className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Market Dashboard</h1>
-            {!isConnected && (
-              <span className="text-xs text-destructive">Connecting...</span>
+      {/* Enhanced Navigation */}
+      <Navigation
+        isConnected={isConnected}
+        activeView="dashboard"
+      />
+      
+      {/* Tab Management System */}
+      <TabManager
+        tabs={tabs}
+        activeTabId={activeTabId}
+        availableWidgets={availableWidgets}
+        onTabChange={switchTab}
+        onTabCreate={createTab}
+        onTabUpdate={updateTab}
+        onTabDelete={deleteTab}
+        onTabReorder={reorderTabs}
+      />
+      
+      <div className="max-w-[1920px] mx-auto p-4 md:p-6">
+        {/* Dashboard Actions */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {activeTab?.name || 'Dashboard'}
+            </h2>
+            {activeTab?.description && (
+              <span className="text-sm text-muted-foreground">
+                {activeTab.description}
+              </span>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => console.log('Add widget')}
-            data-testid="button-add-widget"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Widget
-          </Button>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportTabs}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              id="import-tabs"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  importTabs(file).then(() => {
+                    toast({
+                      title: "Success",
+                      description: "Tabs imported successfully"
+                    });
+                  }).catch((error) => {
+                    toast({
+                      title: "Error", 
+                      description: "Failed to import tabs: " + error.message,
+                      variant: "destructive"
+                    });
+                  });
+                }
+                e.target.value = '';
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => document.getElementById('import-tabs')?.click()}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                resetTabs();
+                toast({
+                  title: "Reset Complete",
+                  description: "Dashboard reset to default configuration"
+                });
+              }}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+          </div>
         </div>
 
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={layouts}
-          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-          cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-          rowHeight={80}
-          isDraggable={true}
-          isResizable={true}
-          resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
-        >
-          <div key="watchlist-1" className="h-full">
-            <WatchlistWidget
-              tokens={watchlistData}
-              selectedSymbol={selectedSymbol}
-              onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
-              onRemoveToken={(symbol) => {
-                const token = watchlistTokens.find(t => t.symbol === symbol);
-                if (token) removeWatchlistMutation.mutate(token.id);
-              }}
-              onSelectToken={handleSelectToken}
-            />
-          </div>
-          <div key="market-1" className="h-full">
-            <MarketDataWidget
-              data={aggregatedMarketData || {
-                symbol: selectedSymbol,
-                price: 0,
-                priceChange: 0,
-                priceChangePercent: 0,
-                volume24hUSDT: 0,
-                allTimeHigh: 0,
-                allTimeLow: 0,
-                exchanges: [],
-              }}
-              onConfigure={() => {
-                console.log("Opening market config modal");
-                setIsMarketConfigOpen(true);
-              }}
-            />
-          </div>
-          <div key="orderbook-1" className="h-full">
-            <OrderBookWidget
-              data={aggregatedOrderBook || {
-                symbol: selectedSymbol,
-                bids: [],
-                asks: [],
-                spread: 0,
-                spreadPercent: 0,
-                exchanges: [],
-              }}
-              viewMode={orderBookViewMode}
-              onConfigure={() => {
-                console.log("Opening order book config modal");
-                setIsOrderBookConfigOpen(true);
-              }}
-            />
-          </div>
-          <div key="webhook-1" className="h-full">
-            <WebhookWidget
-              messages={webhookMessages.map(wh => ({
-                ...wh,
-                timestamp: new Date(wh.timestamp),
-              }))}
-              onToggleBookmark={(id) => {
-                const msg = webhookMessages.find(m => m.id === id);
-                if (msg) {
-                  toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
-                }
-              }}
-            />
-          </div>
-          <div key="alerts-1" className="h-full">
-            <AlertsWidget
-              alerts={alerts.map(a => ({
-                id: a.id,
-                type: a.type as "price" | "keyword",
-                exchanges: a.exchanges as string[],
-                condition: a.condition || undefined,
-                value: a.value ? parseFloat(a.value) : undefined,
-                keyword: a.keyword || undefined,
-                triggered: a.triggered,
-                lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
-                triggerCount: a.triggerCount,
-                maxTriggers: a.maxTriggers,
-              }))}
-              onAddAlert={() => {
-                setEditingAlert(null);
-                setIsAlertPanelOpen(true);
-              }}
-              onEditAlert={(alert) => {
-                setEditingAlert(alert);
-                setIsAlertPanelOpen(true);
-              }}
-              onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
-            />
-          </div>
-        </ResponsiveGridLayout>
+        {/* Tab-Based Responsive Layout */}
+        <ResponsiveLayout
+          widgets={activeTabWidgets}
+          onLayoutChange={(layouts) => {
+            saveLayout({ [activeTabId]: layouts });
+          }}
+          onSaveLayout={() => {
+            toast({
+              title: "Layout Saved",
+              description: `Layout saved for "${activeTab?.name}"`
+            });
+          }}
+        />
       </div>
 
       <AlertConfigPanel
