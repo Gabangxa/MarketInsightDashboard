@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Download, Upload, RotateCcw } from "lucide-react";
 import Navigation from "@/components/Navigation";
+import TabManager from "@/components/TabManager";
 import ResponsiveLayout, { type WidgetConfig } from "@/components/ResponsiveLayout";
 import MarketDataWidget from "@/components/MarketDataWidget";
 import OrderBookWidget from "@/components/OrderBookWidget";
@@ -17,6 +18,8 @@ import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTabSystem } from "@/hooks/useTabSystem";
+import { useToast } from "@/hooks/use-toast";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 
 export default function Dashboard() {
@@ -28,6 +31,8 @@ export default function Dashboard() {
   const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
+
+  const { toast } = useToast();
 
   // WebSocket connection
   const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
@@ -205,8 +210,8 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
-  // Configure widgets for the responsive layout
-  const widgets: WidgetConfig[] = useMemo(() => [
+  // Define all available widgets for the tab system
+  const availableWidgets: WidgetConfig[] = useMemo(() => [
     {
       id: "watchlist-1",
       title: "Watchlist",
@@ -335,6 +340,23 @@ export default function Dashboard() {
     setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation
   ]);
 
+  // Initialize tab system
+  const {
+    tabs,
+    activeTabId,
+    activeTab,
+    activeTabWidgets,
+    createTab,
+    updateTab,
+    deleteTab,
+    switchTab,
+    reorderTabs,
+    saveLayout,
+    exportTabs,
+    importTabs,
+    resetTabs
+  } = useTabSystem(availableWidgets);
+
   const handleSelectToken = (symbol: string) => {
     setSelectedSymbol(symbol);
     // Update selected exchanges to match the token's configured exchanges
@@ -354,28 +376,106 @@ export default function Dashboard() {
         activeView="dashboard"
       />
       
+      {/* Tab Management System */}
+      <TabManager
+        tabs={tabs}
+        activeTabId={activeTabId}
+        availableWidgets={availableWidgets}
+        onTabChange={switchTab}
+        onTabCreate={createTab}
+        onTabUpdate={updateTab}
+        onTabDelete={deleteTab}
+        onTabReorder={reorderTabs}
+      />
+      
       <div className="max-w-[1920px] mx-auto p-4 md:p-6">
-        {/* Add Widget Action */}
-        <div className="flex items-center justify-end mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => console.log('Add widget')}
-            data-testid="button-add-widget"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Widget
-          </Button>
+        {/* Dashboard Actions */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {activeTab?.name || 'Dashboard'}
+            </h2>
+            {activeTab?.description && (
+              <span className="text-sm text-muted-foreground">
+                {activeTab.description}
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportTabs}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              id="import-tabs"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  importTabs(file).then(() => {
+                    toast({
+                      title: "Success",
+                      description: "Tabs imported successfully"
+                    });
+                  }).catch((error) => {
+                    toast({
+                      title: "Error", 
+                      description: "Failed to import tabs: " + error.message,
+                      variant: "destructive"
+                    });
+                  });
+                }
+                e.target.value = '';
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => document.getElementById('import-tabs')?.click()}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                resetTabs();
+                toast({
+                  title: "Reset Complete",
+                  description: "Dashboard reset to default configuration"
+                });
+              }}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+          </div>
         </div>
 
-        {/* Improved Responsive Layout */}
+        {/* Tab-Based Responsive Layout */}
         <ResponsiveLayout
-          widgets={widgets}
+          widgets={activeTabWidgets}
           onLayoutChange={(layouts) => {
-            console.log('Layout changed:', layouts);
+            saveLayout({ [activeTabId]: layouts });
           }}
           onSaveLayout={() => {
-            console.log('Save layout');
+            toast({
+              title: "Layout Saved",
+              description: `Layout saved for "${activeTab?.name}"`
+            });
           }}
         />
       </div>
