@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid } from "lucide-react";
+import { Plus } from "lucide-react";
+import Navigation from "@/components/Navigation";
+import ResponsiveLayout, { type WidgetConfig } from "@/components/ResponsiveLayout";
 import MarketDataWidget from "@/components/MarketDataWidget";
 import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
@@ -17,10 +18,6 @@ import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Dashboard() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
@@ -208,40 +205,135 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
-  // Optimized "best fit" layout for trading dashboard
-  // Large screens: 3-column layout (Watchlist | Market+OrderBook | Webhooks+Alerts)
-  // Medium screens: 2-column layout with stacking
-  // Small screens: Single column, full width widgets
-  const [layouts] = useState({
-    lg: [
-      // Watchlist: Left sidebar, full height
-      { i: "watchlist-1", x: 0, y: 0, w: 3, h: 8, minW: 3, minH: 4 },
-      // Market Data: Top center, compact
-      { i: "market-1", x: 3, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
-      // Order Book: Below market data, taller for full bid/ask display
-      { i: "orderbook-1", x: 3, y: 3, w: 4, h: 5, minW: 3, minH: 4 },
-      // Webhook Messages: Right column, tall
-      { i: "webhook-1", x: 7, y: 0, w: 5, h: 5, minW: 3, minH: 4 },
-      // Alerts: Bottom right, compact
-      { i: "alerts-1", x: 7, y: 5, w: 5, h: 3, minW: 4, minH: 2 },
-    ],
-    md: [
-      // Medium screens: 2-column layout
-      { i: "watchlist-1", x: 0, y: 0, w: 5, h: 6, minW: 3, minH: 4 },
-      { i: "market-1", x: 5, y: 0, w: 5, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 5, y: 3, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "webhook-1", x: 0, y: 6, w: 5, h: 5, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 5, y: 8, w: 5, h: 3, minW: 4, minH: 2 },
-    ],
-    sm: [
-      // Small screens: Single column, prioritize trading widgets
-      { i: "market-1", x: 0, y: 0, w: 6, h: 3, minW: 3, minH: 2 },
-      { i: "orderbook-1", x: 0, y: 3, w: 6, h: 5, minW: 3, minH: 4 },
-      { i: "watchlist-1", x: 0, y: 8, w: 6, h: 6, minW: 3, minH: 4 },
-      { i: "alerts-1", x: 0, y: 14, w: 6, h: 3, minW: 4, minH: 2 },
-      { i: "webhook-1", x: 0, y: 17, w: 6, h: 5, minW: 3, minH: 4 },
-    ],
-  });
+  // Configure widgets for the responsive layout
+  const widgets: WidgetConfig[] = useMemo(() => [
+    {
+      id: "watchlist-1",
+      title: "Watchlist",
+      category: "data",
+      priority: "high",
+      defaultSize: { w: 3, h: 8, minW: 3, minH: 4 },
+      component: (
+        <WatchlistWidget
+          tokens={watchlistData}
+          selectedSymbol={selectedSymbol}
+          onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
+          onRemoveToken={(symbol) => {
+            const token = watchlistTokens.find(t => t.symbol === symbol);
+            if (token) removeWatchlistMutation.mutate(token.id);
+          }}
+          onSelectToken={handleSelectToken}
+        />
+      )
+    },
+    {
+      id: "market-1", 
+      title: "Market Data",
+      category: "trading",
+      priority: "high",
+      defaultSize: { w: 4, h: 3, minW: 3, minH: 2 },
+      component: (
+        <MarketDataWidget
+          data={aggregatedMarketData || {
+            symbol: selectedSymbol,
+            price: 0,
+            priceChange: 0,
+            priceChangePercent: 0,
+            volume24hUSDT: 0,
+            allTimeHigh: 0,
+            allTimeLow: 0,
+            exchanges: [],
+          }}
+          onConfigure={() => {
+            console.log("Opening market config modal");
+            setIsMarketConfigOpen(true);
+          }}
+        />
+      )
+    },
+    {
+      id: "orderbook-1",
+      title: "Order Book", 
+      category: "trading",
+      priority: "high",
+      defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },
+      component: (
+        <OrderBookWidget
+          data={aggregatedOrderBook || {
+            symbol: selectedSymbol,
+            bids: [],
+            asks: [],
+            spread: 0,
+            spreadPercent: 0,
+            exchanges: [],
+          }}
+          viewMode={orderBookViewMode}
+          onConfigure={() => {
+            console.log("Opening order book config modal");
+            setIsOrderBookConfigOpen(true);
+          }}
+        />
+      )
+    },
+    {
+      id: "webhook-1",
+      title: "Webhook Messages",
+      category: "alerts", 
+      priority: "medium",
+      defaultSize: { w: 5, h: 5, minW: 3, minH: 4 },
+      component: (
+        <WebhookWidget
+          messages={webhookMessages.map(wh => ({
+            ...wh,
+            timestamp: new Date(wh.timestamp),
+          }))}
+          onToggleBookmark={(id) => {
+            const msg = webhookMessages.find(m => m.id === id);
+            if (msg) {
+              toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
+            }
+          }}
+        />
+      )
+    },
+    {
+      id: "alerts-1",
+      title: "Alerts",
+      category: "alerts",
+      priority: "medium", 
+      defaultSize: { w: 5, h: 3, minW: 4, minH: 2 },
+      component: (
+        <AlertsWidget
+          alerts={alerts.map(a => ({
+            id: a.id,
+            type: a.type as "price" | "keyword",
+            exchanges: a.exchanges as string[],
+            condition: a.condition || undefined,
+            value: a.value ? parseFloat(a.value) : undefined,
+            keyword: a.keyword || undefined,
+            triggered: a.triggered,
+            lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
+            triggerCount: a.triggerCount,
+            maxTriggers: a.maxTriggers,
+          }))}
+          onAddAlert={() => {
+            setEditingAlert(null);
+            setIsAlertPanelOpen(true);
+          }}
+          onEditAlert={(alert) => {
+            setEditingAlert(alert);
+            setIsAlertPanelOpen(true);
+          }}
+          onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
+        />
+      )
+    }
+  ], [
+    watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
+    removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
+    orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
+    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation
+  ]);
 
   const handleSelectToken = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -253,18 +345,18 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6" data-testid="page-dashboard">
+    <div className="min-h-screen bg-background" data-testid="page-dashboard">
       <Toaster position="top-right" />
       
-      <div className="max-w-[1920px] mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <LayoutGrid className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Market Dashboard</h1>
-            {!isConnected && (
-              <span className="text-xs text-destructive">Connecting...</span>
-            )}
-          </div>
+      {/* Enhanced Navigation */}
+      <Navigation
+        isConnected={isConnected}
+        activeView="dashboard"
+      />
+      
+      <div className="max-w-[1920px] mx-auto p-4 md:p-6">
+        {/* Add Widget Action */}
+        <div className="flex items-center justify-end mb-4">
           <Button
             variant="outline"
             size="sm"
@@ -276,103 +368,16 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={layouts}
-          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-          cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-          rowHeight={80}
-          isDraggable={true}
-          isResizable={true}
-          resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
-        >
-          <div key="watchlist-1" className="h-full">
-            <WatchlistWidget
-              tokens={watchlistData}
-              selectedSymbol={selectedSymbol}
-              onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
-              onRemoveToken={(symbol) => {
-                const token = watchlistTokens.find(t => t.symbol === symbol);
-                if (token) removeWatchlistMutation.mutate(token.id);
-              }}
-              onSelectToken={handleSelectToken}
-            />
-          </div>
-          <div key="market-1" className="h-full">
-            <MarketDataWidget
-              data={aggregatedMarketData || {
-                symbol: selectedSymbol,
-                price: 0,
-                priceChange: 0,
-                priceChangePercent: 0,
-                volume24hUSDT: 0,
-                allTimeHigh: 0,
-                allTimeLow: 0,
-                exchanges: [],
-              }}
-              onConfigure={() => {
-                console.log("Opening market config modal");
-                setIsMarketConfigOpen(true);
-              }}
-            />
-          </div>
-          <div key="orderbook-1" className="h-full">
-            <OrderBookWidget
-              data={aggregatedOrderBook || {
-                symbol: selectedSymbol,
-                bids: [],
-                asks: [],
-                spread: 0,
-                spreadPercent: 0,
-                exchanges: [],
-              }}
-              viewMode={orderBookViewMode}
-              onConfigure={() => {
-                console.log("Opening order book config modal");
-                setIsOrderBookConfigOpen(true);
-              }}
-            />
-          </div>
-          <div key="webhook-1" className="h-full">
-            <WebhookWidget
-              messages={webhookMessages.map(wh => ({
-                ...wh,
-                timestamp: new Date(wh.timestamp),
-              }))}
-              onToggleBookmark={(id) => {
-                const msg = webhookMessages.find(m => m.id === id);
-                if (msg) {
-                  toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
-                }
-              }}
-            />
-          </div>
-          <div key="alerts-1" className="h-full">
-            <AlertsWidget
-              alerts={alerts.map(a => ({
-                id: a.id,
-                type: a.type as "price" | "keyword",
-                exchanges: a.exchanges as string[],
-                condition: a.condition || undefined,
-                value: a.value ? parseFloat(a.value) : undefined,
-                keyword: a.keyword || undefined,
-                triggered: a.triggered,
-                lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
-                triggerCount: a.triggerCount,
-                maxTriggers: a.maxTriggers,
-              }))}
-              onAddAlert={() => {
-                setEditingAlert(null);
-                setIsAlertPanelOpen(true);
-              }}
-              onEditAlert={(alert) => {
-                setEditingAlert(alert);
-                setIsAlertPanelOpen(true);
-              }}
-              onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
-            />
-          </div>
-        </ResponsiveGridLayout>
+        {/* Improved Responsive Layout */}
+        <ResponsiveLayout
+          widgets={widgets}
+          onLayoutChange={(layouts) => {
+            console.log('Layout changed:', layouts);
+          }}
+          onSaveLayout={() => {
+            console.log('Save layout');
+          }}
+        />
       </div>
 
       <AlertConfigPanel
