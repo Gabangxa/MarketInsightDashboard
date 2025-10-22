@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,8 +6,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   Settings,
   TrendingUp,
-  TrendingDown,
-  Minus,
   AlertTriangle,
   Activity,
   BarChart3,
@@ -28,7 +26,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
   calculateAllIndicators,
-  convertToPriceData,
   type IndicatorResult,
   type PriceData
 } from '@/lib/technicalIndicators';
