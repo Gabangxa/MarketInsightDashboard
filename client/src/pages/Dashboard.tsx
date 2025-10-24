@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload, RotateCcw } from "lucide-react";
-import Navigation from "@/components/Navigation";
 import TabManager from "@/components/TabManager";
 import ResponsiveLayout, { type WidgetConfig } from "@/components/ResponsiveLayout";
 import MarketDataWidget from "@/components/MarketDataWidget";
@@ -417,14 +416,8 @@ export default function Dashboard() {
   } = useTabSystem(availableWidgets);
 
   return (
-    <div className="min-h-screen bg-background" data-testid="page-dashboard">
+    <div className="h-full bg-background overflow-hidden" data-testid="page-dashboard">
       <Toaster position="top-right" />
-
-      {/* Enhanced Navigation */}
-      <Navigation
-        isConnected={isConnected}
-        activeView="dashboard"
-      />
 
       {/* Tab Management System */}
       <TabManager
@@ -438,9 +431,9 @@ export default function Dashboard() {
         onTabReorder={reorderTabs}
       />
 
-      <div className="max-w-[1920px] mx-auto p-4 md:p-6">
+      <div className="h-full flex flex-col overflow-hidden p-4 md:p-6">
         {/* Dashboard Actions */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">
               {activeTab?.name || 'Dashboard'}
@@ -516,18 +509,20 @@ export default function Dashboard() {
         </div>
 
         {/* Tab-Based Responsive Layout */}
-        <ResponsiveLayout
-          widgets={activeTabWidgets}
-          onLayoutChange={(layouts) => {
-            saveLayout({ [activeTabId]: layouts });
-          }}
-          onSaveLayout={() => {
-            toast({
-              title: "Layout Saved",
-              description: `Layout saved for "${activeTab?.name}"`
-            });
-          }}
-        />
+        <div className="flex-1 overflow-hidden">
+          <ResponsiveLayout
+            widgets={activeTabWidgets}
+            onLayoutChange={(layouts) => {
+              saveLayout({ [activeTabId]: layouts });
+            }}
+            onSaveLayout={() => {
+              toast({
+                title: "Layout Saved",
+                description: `Layout saved for "${activeTab?.name}"`
+              });
+            }}
+          />
+        </div>
       </div>
 
       <AlertConfigPanel
