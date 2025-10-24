@@ -319,8 +319,8 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
 
       <div className="space-y-4">
         {/* Column Headers */}
-        <div className="grid grid-cols-3 text-xs text-muted-foreground">
-          <span>Price (USD)</span>
+        <div className="grid grid-cols-3 text-xs text-muted-foreground font-medium px-2">
+          <span className="text-left">Price (USD)</span>
           <span className="text-right">Size</span>
           <span className="text-right">Total</span>
         </div>
@@ -332,20 +332,20 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
               displayAsks.map((ask, idx) => (
                 <div
                   key={`ask-${ask.percentage}`}
-                  className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                  className="relative grid grid-cols-3 text-xs font-mono py-1 px-2"
                   data-testid={`orderbook-ask-${ask.percentage}`}
                 >
                   <div
                     className="absolute inset-0 bg-negative/20 transition-all duration-300 ease-out"
                     style={{ width: `${(ask.total / maxTotal) * 100}%` }}
                   />
-                  <span className="relative text-negative font-medium">
+                  <span className="relative text-negative font-semibold text-left">
                     {ask.price.toFixed(2)}
                   </span>
-                  <span className="relative text-right">
+                  <span className="relative text-right font-medium">
                     {ask.size > 0 ? ask.size.toFixed(4) : '-'}
                   </span>
-                  <span className="relative text-right text-muted-foreground">
+                  <span className="relative text-right text-muted-foreground font-medium">
                     {ask.total > 0 ? ask.total.toFixed(2) : '-'}
                   </span>
                 </div>
@@ -376,20 +376,20 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
               displayBids.map((bid, idx) => (
                 <div
                   key={`bid-${bid.percentage}`}
-                  className="relative grid grid-cols-3 text-xs font-mono py-1.5"
+                  className="relative grid grid-cols-3 text-xs font-mono py-1 px-2"
                   data-testid={`orderbook-bid-${bid.percentage}`}
                 >
                   <div
                     className="absolute inset-0 bg-positive/20 transition-all duration-300 ease-out"
                     style={{ width: `${(bid.total / maxTotal) * 100}%` }}
                   />
-                  <span className="relative text-positive font-medium">
+                  <span className="relative text-positive font-semibold text-left">
                     {bid.price.toFixed(2)}
                   </span>
-                  <span className="relative text-right">
+                  <span className="relative text-right font-medium">
                     {bid.size > 0 ? bid.size.toFixed(4) : '-'}
                   </span>
-                  <span className="relative text-right text-muted-foreground">
+                  <span className="relative text-right text-muted-foreground font-medium">
                     {bid.total > 0 ? bid.total.toFixed(2) : '-'}
                   </span>
                 </div>
