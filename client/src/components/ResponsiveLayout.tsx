@@ -45,13 +45,14 @@ const BREAKPOINTS = {
   xs: 0       // Small phones
 };
 
+// Increased columns for finer control and more flexible placement
 const COLS = {
-  xxl: 16,    // More columns for ultra-wide
-  xl: 12,     // Standard desktop
-  lg: 10,     // Large tablets
-  md: 8,      // Tablets 
-  sm: 4,      // Large phones
-  xs: 2       // Small phones
+  xxl: 24,    // Ultra-wide - very fine control
+  xl: 18,     // Desktop - fine control
+  lg: 12,     // Large tablets - good control
+  md: 12,     // Tablets - maintain control
+  sm: 6,      // Large phones - some flexibility
+  xs: 4       // Small phones - basic flexibility
 };
 
 // Smart layout generator based on widget priority and screen size
@@ -75,61 +76,61 @@ function generateResponsiveLayouts(widgets: WidgetConfig[]): { [key: string]: La
 
   // Ultra-wide layout (xxl) - 4 columns with specialized areas
   layouts.xxl = generateLayoutForBreakpoint(sortedWidgets, 'xxl', {
-    cols: 16,
-    maxRows: 8,
+    cols: 24,
+    maxRows: 12,
     sections: [
-      { name: 'sidebar', x: 0, w: 4 },      // Left sidebar
-      { name: 'main', x: 4, w: 8 },         // Main content 
-      { name: 'right', x: 12, w: 4 }        // Right sidebar
+      { name: 'sidebar', x: 0, w: 6 },      // Left sidebar
+      { name: 'main', x: 6, w: 12 },        // Main content 
+      { name: 'right', x: 18, w: 6 }        // Right sidebar
     ]
   });
 
   // Desktop layout (xl) - 3 column layout
   layouts.xl = generateLayoutForBreakpoint(sortedWidgets, 'xl', {
-    cols: 12,
-    maxRows: 8,
+    cols: 18,
+    maxRows: 12,
     sections: [
-      { name: 'sidebar', x: 0, w: 3 },      // Left sidebar
-      { name: 'main', x: 3, w: 6 },         // Main content
-      { name: 'right', x: 9, w: 3 }         // Right sidebar  
+      { name: 'sidebar', x: 0, w: 5 },      // Left sidebar
+      { name: 'main', x: 5, w: 8 },         // Main content
+      { name: 'right', x: 13, w: 5 }        // Right sidebar  
     ]
   });
 
   // Large tablet layout (lg) - 2.5 column layout
   layouts.lg = generateLayoutForBreakpoint(sortedWidgets, 'lg', {
-    cols: 10,
-    maxRows: 10,
+    cols: 12,
+    maxRows: 14,
     sections: [
-      { name: 'left', x: 0, w: 4 },
-      { name: 'right', x: 4, w: 6 }
+      { name: 'left', x: 0, w: 5 },
+      { name: 'right', x: 5, w: 7 }
     ]
   });
 
   // Tablet layout (md) - 2 column layout
   layouts.md = generateLayoutForBreakpoint(sortedWidgets, 'md', {
-    cols: 8,
-    maxRows: 12,
+    cols: 12,
+    maxRows: 16,
     sections: [
-      { name: 'left', x: 0, w: 4 },
-      { name: 'right', x: 4, w: 4 }
+      { name: 'left', x: 0, w: 6 },
+      { name: 'right', x: 6, w: 6 }
     ]
   });
 
   // Large phone layout (sm) - Single column with some side-by-side
   layouts.sm = generateLayoutForBreakpoint(sortedWidgets, 'sm', {
-    cols: 4,
-    maxRows: 20,
+    cols: 6,
+    maxRows: 24,
     sections: [
-      { name: 'full', x: 0, w: 4 }
+      { name: 'full', x: 0, w: 6 }
     ]
   });
 
   // Small phone layout (xs) - Single column
   layouts.xs = generateLayoutForBreakpoint(sortedWidgets, 'xs', {
-    cols: 2,
+    cols: 4,
     maxRows: 30,
     sections: [
-      { name: 'full', x: 0, w: 2 }
+      { name: 'full', x: 0, w: 4 }
     ]
   });
 
@@ -179,8 +180,8 @@ function generateLayoutForBreakpoint(
       y: currentY,
       w: width,
       h: height,
-      minW: widget.defaultSize.minW || 2,
-      minH: widget.defaultSize.minH || 2
+      minW: widget.defaultSize.minW || 1,
+      minH: widget.defaultSize.minH || 1
     });
 
     // Move to next position
@@ -360,7 +361,7 @@ export default function ResponsiveLayout({
         layouts={layouts}
         breakpoints={BREAKPOINTS}
         cols={COLS}
-        rowHeight={80}
+        rowHeight={50}
         onLayoutChange={handleLayoutChange}
         onBreakpointChange={setCurrentBreakpoint}
         onDragStart={() => setIsDragging(true)}
@@ -370,11 +371,11 @@ export default function ResponsiveLayout({
         isDraggable={true}
         isResizable={true}
         resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
-        margin={[12, 12]}
+        margin={[8, 8]}
         containerPadding={[0, 0]}
         useCSSTransforms={true}
         preventCollision={false}
-        compactType="vertical"
+        compactType={null}
       >
         {visibleWidgets.map((widget) => (
           <div key={widget.id} className="h-full">
