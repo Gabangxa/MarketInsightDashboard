@@ -23,6 +23,11 @@ const DEFAULT_TAB: Omit<TabConfig, 'id' | 'createdAt' | 'updatedAt'> = {
 
 const STORAGE_KEY = 'market-dashboard-tabs';
 
+// Generate unique ID
+const generateId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
+
 export function useTabSystem(availableWidgets: WidgetConfig[]) {
   const [state, setState] = useState<TabSystemState>(() => {
     // Load from localStorage
@@ -68,11 +73,6 @@ export function useTabSystem(availableWidgets: WidgetConfig[]) {
       console.error('Failed to save tabs to localStorage:', error);
     }
   }, [state]);
-
-  // Generate unique ID
-  const generateId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-  };
 
   // Get active tab
   const activeTab = state.tabs.find(tab => tab.id === state.activeTabId);

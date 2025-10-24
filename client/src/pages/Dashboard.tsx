@@ -211,6 +211,16 @@ export default function Dashboard() {
     });
   }, [watchlistTokens, marketData]);
 
+  // Handler for selecting a token from watchlist
+  const handleSelectToken = (symbol: string) => {
+    setSelectedSymbol(symbol);
+    // Update selected exchanges to match the token's configured exchanges
+    const token = watchlistTokens.find(t => t.symbol === symbol);
+    if (token && token.exchanges) {
+      setSelectedExchanges(token.exchanges as string[]);
+    }
+  };
+
   // Define all available widgets for the tab system
   const availableWidgets: WidgetConfig[] = useMemo(() => [
     {
@@ -386,7 +396,7 @@ export default function Dashboard() {
     watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
     removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
     orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
-    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation
+    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation, handleSelectToken
   ]);
 
   // Initialize tab system
@@ -405,15 +415,6 @@ export default function Dashboard() {
     importTabs,
     resetTabs
   } = useTabSystem(availableWidgets);
-
-  const handleSelectToken = (symbol: string) => {
-    setSelectedSymbol(symbol);
-    // Update selected exchanges to match the token's configured exchanges
-    const token = watchlistTokens.find(t => t.symbol === symbol);
-    if (token && token.exchanges) {
-      setSelectedExchanges(token.exchanges as string[]);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background" data-testid="page-dashboard">
