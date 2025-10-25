@@ -33,7 +33,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="dark">
-          <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+          <SidebarProvider defaultOpen={false} style={sidebarStyle as React.CSSProperties}>
             <div className="flex h-screen w-full">
               <AppSidebar 
                 isConnected={isConnected}
