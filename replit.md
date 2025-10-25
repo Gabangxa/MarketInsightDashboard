@@ -35,14 +35,19 @@ Preferred communication style: Simple, everyday language.
   - Webhook Widget: External message monitoring with filtering
   - Chart Widget: TradingView lightweight-charts integration with historical + real-time data (Oct 21, 2025)
 - Responsive grid layout with persistent positioning via database storage
-- **Optimized "Best Fit" Default Layout:**
-  - Large screens (1200px+): 3-column trading terminal layout
-    - Left: Watchlist sidebar (full height)
-    - Center: Market Data + Order Book (stacked, order book taller for full bid/ask display)
-    - Right: Webhook Messages + Alerts (stacked)
-  - Medium screens (996-1199px): 2-column responsive layout
-  - Small screens (<996px): Single column mobile-optimized layout
-  - Order Book increased to 5 rows (400px) for complete spread visualization
+- **Grid System Refactored (Oct 25, 2025):**
+  - Unified 12-column grid across ALL breakpoints (lg, md, sm, xs, xxs) for consistent alignment
+  - Vertical compaction (`compactType="vertical"`) allows horizontal widget placement while preventing overlaps
+  - Collision prevention enabled (`preventCollision={true}`) to avoid widget overlaps during drag/resize
+  - Layout state memoized - user customizations persist, no auto-regeneration on widget changes
+  - Drag handles on widget title headers (`.widget-drag-handle` class)
+  - 8 resize handles (all corners and edges) for precise dimension control
+  - Simplified default layout logic - basic grid placement without complex section allocation
+  - Breakpoints: lg (1200px+), md (996px+), sm (768px+), xs (480px+), xxs (0px+)
+- **Default Layout:**
+  - Desktop (lg/md): Widgets flow in up to 3 columns (4 cols max width per widget)
+  - Tablets (sm): Widgets flow in up to 2 columns (6 cols max width per widget)
+  - Mobile (xs/xxs): Single column, full-width widgets
 
 **Real-Time Data Flow:**
 - WebSocket connection to backend (`/ws` endpoint)
