@@ -31,7 +31,7 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
       flashColor === "positive" && "bg-positive/10",
       flashColor === "negative" && "bg-negative/10"
     )} data-testid="widget-market-data">
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-4 widget-drag-handle cursor-move">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {data.symbol}

@@ -370,6 +370,7 @@ export default function ResponsiveLayout({
         onResizeStop={() => setIsDragging(false)}
         isDraggable={true}
         isResizable={true}
+        draggableHandle=".widget-drag-handle"
         resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
         margin={[8, 8]}
         containerPadding={[0, 0]}

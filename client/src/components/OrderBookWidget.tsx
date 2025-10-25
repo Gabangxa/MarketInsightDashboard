@@ -239,7 +239,7 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
 
   return (
     <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-order-book">
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-4 widget-drag-handle cursor-move">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
