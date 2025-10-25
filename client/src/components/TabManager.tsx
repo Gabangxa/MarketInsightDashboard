@@ -155,6 +155,7 @@ export default function TabManager({
                 "flex items-center gap-2 min-w-0",
                 activeTabId === tab.id && "bg-primary text-primary-foreground"
               )}
+              data-testid={`button-tab-${tab.id}`}
             >
               <span className="truncate max-w-32">{tab.name}</span>
               <Badge variant="secondary" className="text-xs">
@@ -171,6 +172,8 @@ export default function TabManager({
                     size="sm"
                     className="h-6 w-6 p-0"
                     onClick={() => setIsManagingTab(tab.id)}
+                    data-testid={`button-manage-tab-${tab.id}`}
+                    aria-label={`Manage tab ${tab.name}`}
                   >
                     <Settings className="h-3 w-3" />
                   </Button>
@@ -198,6 +201,7 @@ export default function TabManager({
                             }
                           }}
                           placeholder="Enter tab name"
+                          data-testid="input-edit-tab-name"
                         />
                       </div>
                       <div>
@@ -213,6 +217,7 @@ export default function TabManager({
                             }
                           }}
                           placeholder="Optional description"
+                          data-testid="input-edit-tab-description"
                         />
                       </div>
                     </div>
@@ -242,6 +247,7 @@ export default function TabManager({
                                         }
                                         handleWidgetToggle(widget.id, checked as boolean);
                                       }}
+                                      data-testid={`checkbox-widget-${widget.id}`}
                                     />
                                     <label
                                       htmlFor={`widget-${widget.id}`}
@@ -267,7 +273,7 @@ export default function TabManager({
                     <div className="flex justify-between">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm" className="gap-2">
+                          <Button variant="destructive" size="sm" className="gap-2" data-testid="button-delete-tab-dialog">
                             <Trash2 className="h-4 w-4" />
                             Delete Tab
                           </Button>
@@ -280,10 +286,11 @@ export default function TabManager({
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => onTabDelete(tab.id)}
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              data-testid="button-confirm-delete"
                             >
                               Delete
                             </AlertDialogAction>
@@ -295,6 +302,7 @@ export default function TabManager({
                         onClick={() => handleUpdateTab(tab.id)}
                         disabled={editingTabId !== tab.id}
                         className="gap-2"
+                        data-testid="button-save-tab-changes"
                       >
                         <Save className="h-4 w-4" />
                         Save Changes
@@ -311,6 +319,8 @@ export default function TabManager({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      data-testid={`button-delete-tab-${tab.id}`}
+                      aria-label={`Delete tab ${tab.name}`}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -341,7 +351,7 @@ export default function TabManager({
         {/* Add New Tab */}
         <Dialog open={isAddingTab} onOpenChange={setIsAddingTab}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 flex-shrink-0">
+            <Button variant="outline" size="sm" className="gap-2 flex-shrink-0" data-testid="button-add-tab">
               <Plus className="h-4 w-4" />
               Add Tab
             </Button>
@@ -363,6 +373,7 @@ export default function TabManager({
                     onChange={(e) => setNewTabName(e.target.value)}
                     placeholder="Enter tab name"
                     autoFocus
+                    data-testid="input-new-tab-name"
                   />
                 </div>
                 <div>
@@ -371,6 +382,7 @@ export default function TabManager({
                     value={newTabDescription}
                     onChange={(e) => setNewTabDescription(e.target.value)}
                     placeholder="Optional description"
+                    data-testid="input-new-tab-description"
                   />
                 </div>
               </div>
@@ -392,6 +404,7 @@ export default function TabManager({
                               onCheckedChange={(checked) => 
                                 handleWidgetToggle(widget.id, checked as boolean)
                               }
+                              data-testid={`checkbox-new-widget-${widget.id}`}
                             />
                             <label
                               htmlFor={`new-widget-${widget.id}`}
@@ -414,6 +427,7 @@ export default function TabManager({
                 <Button 
                   variant="outline" 
                   onClick={() => setIsAddingTab(false)}
+                  data-testid="button-cancel-new-tab"
                 >
                   Cancel
                 </Button>
@@ -421,6 +435,7 @@ export default function TabManager({
                   onClick={handleCreateTab}
                   disabled={!newTabName.trim()}
                   className="gap-2"
+                  data-testid="button-create-tab"
                 >
                   <Plus className="h-4 w-4" />
                   Create Tab

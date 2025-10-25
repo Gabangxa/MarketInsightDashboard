@@ -112,13 +112,13 @@ export function AppSidebar({ isConnected = true, activeView = 'dashboard', onVie
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => {/* Handle settings */}}>
+                <SidebarMenuButton onClick={() => {/* Handle settings */}} data-testid="button-settings">
                   <Settings className="h-4 w-4" />
                   <span>Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => {/* Handle help */}}>
+                <SidebarMenuButton onClick={() => {/* Handle help */}} data-testid="button-help">
                   <HelpCircle className="h-4 w-4" />
                   <span>Help & Support</span>
                 </SidebarMenuButton>

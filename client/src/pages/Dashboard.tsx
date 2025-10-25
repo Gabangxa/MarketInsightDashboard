@@ -13,7 +13,6 @@ import WatchlistWidget from "@/components/WatchlistWidget";
 import OrderBookConfigModal from "@/components/OrderBookConfigModal";
 import MarketDataConfigModal from "@/components/MarketDataConfigModal";
 import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
-import { Toaster } from "react-hot-toast";
 import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
@@ -417,8 +416,6 @@ export default function Dashboard() {
 
   return (
     <div className="h-full bg-background overflow-hidden" data-testid="page-dashboard">
-      <Toaster position="top-right" />
-
       {/* Tab Management System */}
       <TabManager
         tabs={tabs}

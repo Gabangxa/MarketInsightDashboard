@@ -48,6 +48,7 @@ export default function MarketDataWidget({ data, onConfigure }: MarketDataWidget
           onClick={onConfigure}
           className="h-6 w-6 relative z-10 pointer-events-auto"
           data-testid="button-configure-market"
+          aria-label={`Configure market data for ${data.symbol}`}
         >
           <Settings className="h-3 w-3" />
         </Button>

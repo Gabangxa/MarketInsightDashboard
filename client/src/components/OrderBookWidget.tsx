@@ -72,7 +72,6 @@ function createDepthBuckets(
   if (useActualSpread) {
     // Orders are tightly clustered - distribute them across buckets based on actual prices
     const priceStep = (maxPrice - minPrice) / BUCKET_COUNT;
-    console.log(`[OrderBook ${type}] Adaptive mode: ${orders.length} orders, spread ${actualSpreadPct.toFixed(4)}%, step $${priceStep.toFixed(2)}`);
     const buckets: DepthBucket[] = [];
     
     for (let i = 0; i < BUCKET_COUNT; i++) {
@@ -87,10 +86,6 @@ function createDepthBuckets(
           ? (o.price >= bucketMin && (i === BUCKET_COUNT - 1 ? o.price <= bucketMax : o.price < bucketMax))
           : (o.price <= bucketMax && (i === BUCKET_COUNT - 1 ? o.price >= bucketMin : o.price > bucketMin));
       });
-      
-      if (bucketOrders.length > 0) {
-        console.log(`[OrderBook ${type}] Bucket ${i}: ${bucketOrders.length} orders, range $${bucketMin.toFixed(2)}-$${bucketMax.toFixed(2)}`);
-      }
       
       if (bucketOrders.length === 0) continue;
       
@@ -160,16 +155,8 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
 
   // Simplified and more reliable order book processing
   const { displayAsks, displayBids, maxTotal, midPrice, spread, spreadPercent } = useMemo(() => {
-    console.log(`[OrderBookWidget] Processing order book data:`, {
-      symbol: data.symbol,
-      bidsCount: data.bids?.length || 0,
-      asksCount: data.asks?.length || 0,
-      viewMode
-    });
-
     // Ensure we have valid data
     if (!data.bids?.length || !data.asks?.length) {
-      console.log(`[OrderBookWidget] Insufficient data - bids: ${data.bids?.length}, asks: ${data.asks?.length}`);
       return {
         displayAsks: [],
         displayBids: [],
@@ -186,14 +173,6 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
     const mid = (bestBid + bestAsk) / 2;
     const currentSpread = bestAsk - bestBid;
     const currentSpreadPercent = mid > 0 ? (currentSpread / mid) * 100 : 0;
-    
-    console.log(`[OrderBookWidget] Price info:`, {
-      bestBid,
-      bestAsk,
-      mid,
-      spread: currentSpread,
-      spreadPercent: currentSpreadPercent
-    });
 
     if (!mid || !bestBid || !bestAsk) {
       return {
@@ -247,13 +226,6 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
       ...topBids.map(b => b.total),
       1
     );
-    
-    console.log(`[OrderBookWidget] Processed data:`, {
-      asksForDisplay: asksForDisplay.length,
-      topBids: topBids.length,
-      maxTotal: max,
-      midPrice: mid
-    });
     
     return {
       displayAsks: asksForDisplay,
@@ -311,6 +283,7 @@ export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }
             onClick={onConfigure}
             className="h-6 w-6 relative z-10 pointer-events-auto"
             data-testid="button-configure-orderbook"
+            aria-label={`Configure order book for ${data.symbol}`}
           >
             <Settings className="h-3 w-3" />
           </Button>
