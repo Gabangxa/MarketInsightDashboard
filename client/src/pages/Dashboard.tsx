@@ -351,7 +351,7 @@ export default function Dashboard() {
       component: (
         <TechnicalIndicatorsWidget
           symbol={selectedSymbol}
-          exchanges={["bybit"]}
+          exchanges={["bybit", "okx"]}
         />
       )
     }

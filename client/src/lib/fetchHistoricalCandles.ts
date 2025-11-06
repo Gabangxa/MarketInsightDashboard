@@ -183,17 +183,26 @@ export async function fetchHistoricalCandles(
 ): Promise<Map<number, Candle>> {
   const limit = calculateCandleCount(period, timeframe);
   
-  console.log(`[Historical] Fetching ${limit} candles for ${symbol} ${timeframe} over ${period}`);
+  // Normalize exchange names to lowercase for case-insensitive matching
+  const normalizedExchanges = exchanges.map(ex => ex.toLowerCase());
+  
+  // Warn if no exchanges provided
+  if (normalizedExchanges.length === 0) {
+    console.warn('[Historical] No exchanges provided, defaulting to bybit and okx');
+    normalizedExchanges.push("bybit", "okx");
+  }
+  
+  console.log(`[Historical] Fetching ${limit} candles for ${symbol} ${timeframe} over ${period} from [${normalizedExchanges.join(', ')}]`);
 
   const promises: Promise<Candle[]>[] = [];
 
-  if (exchanges.includes("binance")) {
+  if (normalizedExchanges.includes("binance")) {
     promises.push(fetchBinance(symbol, timeframe, limit));
   }
-  if (exchanges.includes("bybit")) {
+  if (normalizedExchanges.includes("bybit")) {
     promises.push(fetchBybit(symbol, timeframe, limit));
   }
-  if (exchanges.includes("okx")) {
+  if (normalizedExchanges.includes("okx")) {
     promises.push(fetchOKX(symbol, timeframe, limit));
   }
 
