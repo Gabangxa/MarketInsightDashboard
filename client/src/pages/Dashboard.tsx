@@ -350,43 +350,8 @@ export default function Dashboard() {
       defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
       component: (
         <TechnicalIndicatorsWidget
-          marketData={(() => {
-            // Convert market data to historical format for indicators
-            const symbolData = marketData.get(selectedSymbol);
-            if (!symbolData || symbolData.size === 0) return [];
-
-            // Get historical price points from market data
-            const historicalData: any[] = [];
-            symbolData.forEach((exchangeData, exchange) => {
-              if (exchangeData && typeof exchangeData === 'object' && 'price' in exchangeData) {
-                historicalData.push({
-                  timestamp: Date.now(),
-                  price: exchangeData.price,
-                  volume: exchangeData.volume24h || 0,
-                  exchange: exchange
-                });
-              }
-            });
-
-            // Generate synthetic historical data for indicators (if needed for demo)
-            if (historicalData.length > 0) {
-              const basePrice = historicalData[0].price;
-              const syntheticData = [];
-              for (let i = 0; i < 50; i++) {
-                const timeAgo = Date.now() - (i * 60000); // 1 minute intervals
-                const priceVariation = 1 + (Math.random() - 0.5) * 0.02; // ±1% variation
-                syntheticData.unshift({
-                  timestamp: timeAgo,
-                  price: basePrice * priceVariation,
-                  volume: Math.random() * 1000000,
-                });
-              }
-              return syntheticData;
-            }
-
-            return [];
-          })()}
           symbol={selectedSymbol}
+          exchanges={["bybit"]}
         />
       )
     }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,9 @@ import {
   BarChart3,
   ArrowUpCircle,
   ArrowDownCircle,
-  CircleDot
+  CircleDot,
+  Loader2,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -25,14 +27,23 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
   calculateAllIndicators,
   type IndicatorResult,
   type PriceData
 } from '@/lib/technicalIndicators';
+import { fetchHistoricalCandles, type Candle } from '@/lib/fetchHistoricalCandles';
 
 interface TechnicalIndicatorsWidgetProps {
-  marketData?: any[]; // Historical price data
   symbol: string;
+  exchanges?: string[];
   onConfigure?: () => void;
   className?: string;
 }
@@ -56,12 +67,32 @@ const DEFAULT_INDICATORS: IndicatorConfig[] = [
   { id: 'williamsR', name: 'Williams %R', category: 'momentum', enabled: false, description: 'Williams Percent Range' }
 ];
 
+const TIMEFRAME_OPTIONS = [
+  { value: '1m', label: '1 Minute' },
+  { value: '5m', label: '5 Minutes' },
+  { value: '15m', label: '15 Minutes' },
+  { value: '30m', label: '30 Minutes' },
+  { value: '1h', label: '1 Hour' },
+  { value: '4h', label: '4 Hours' },
+  { value: '1d', label: '1 Day' },
+  { value: '1w', label: '1 Week' },
+  { value: '1M', label: '1 Month' },
+];
+
+const PERIOD_OPTIONS = [
+  { value: '1h', label: '1 Hour' },
+  { value: '4h', label: '4 Hours' },
+  { value: '24h', label: '24 Hours' },
+  { value: '1w', label: '1 Week' },
+  { value: '1M', label: '1 Month' },
+];
+
 function getSignalIcon(signal?: 'buy' | 'sell' | 'hold') {
   switch (signal) {
     case 'buy':
-      return <ArrowUpCircle className="h-4 w-4 text-green-500" />;
+      return <ArrowUpCircle className="h-4 w-4 text-positive" />;
     case 'sell':
-      return <ArrowDownCircle className="h-4 w-4 text-red-500" />;
+      return <ArrowDownCircle className="h-4 w-4 text-negative" />;
     default:
       return <CircleDot className="h-4 w-4 text-muted-foreground" />;
   }
@@ -70,9 +101,9 @@ function getSignalIcon(signal?: 'buy' | 'sell' | 'hold') {
 function getSignalColor(signal?: 'buy' | 'sell' | 'hold') {
   switch (signal) {
     case 'buy':
-      return 'text-green-600 bg-green-50 border-green-200';
+      return 'text-positive bg-positive/10 border-positive/40';
     case 'sell':
-      return 'text-red-600 bg-red-50 border-red-200';
+      return 'text-negative bg-negative/10 border-negative/40';
     default:
       return 'text-muted-foreground bg-muted border-border';
   }
@@ -83,7 +114,6 @@ function formatIndicatorValue(indicator: IndicatorResult): string {
   
   const value = indicator.lastValue.value;
   
-  // Special formatting for different indicator types
   if (indicator.name.includes('RSI') || indicator.name.includes('Stoch') || indicator.name.includes('Williams')) {
     return value.toFixed(1);
   }
@@ -98,7 +128,7 @@ function formatIndicatorValue(indicator: IndicatorResult): string {
 function getIndicatorDescription(indicator: IndicatorResult): string {
   if (!indicator.lastValue) return 'No data available';
   
-  const { value, signal, metadata } = indicator.lastValue;
+  const { value, metadata } = indicator.lastValue;
   
   if (indicator.name.includes('RSI')) {
     if (value <= 30) return 'Oversold condition - potential buying opportunity';
@@ -130,52 +160,72 @@ function getIndicatorDescription(indicator: IndicatorResult): string {
 }
 
 export default function TechnicalIndicatorsWidget({ 
-  marketData = [], 
   symbol,
+  exchanges = ["bybit"],
   onConfigure,
   className 
 }: TechnicalIndicatorsWidgetProps) {
   const [indicatorConfigs, setIndicatorConfigs] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [timeframe, setTimeframe] = useState<string>('1h');
+  const [period, setPeriod] = useState<string>('24h');
+  const [historicalData, setHistoricalData] = useState<Map<number, Candle>>(new Map());
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Convert market data to required format and calculate indicators
+  // Fetch historical data when symbol, timeframe, or period changes
+  useEffect(() => {
+    const loadHistoricalData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const candles = await fetchHistoricalCandles(symbol, timeframe, period, exchanges);
+        setHistoricalData(candles);
+        
+        if (candles.size === 0) {
+          setError('No data available');
+        }
+      } catch (err) {
+        console.error('Failed to fetch historical data:', err);
+        setError('Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadHistoricalData();
+  }, [symbol, timeframe, period, exchanges]);
+
+  // Calculate indicators from historical data
   const indicators = useMemo(() => {
-    if (!marketData?.length || marketData.length < 26) {
+    if (historicalData.size < 26) {
       return {};
     }
 
     try {
-      // Generate mock OHLC data from market data if needed
-      const priceData: PriceData[] = marketData.map((data, index) => {
-        const price = parseFloat(data.price || data.close || 0);
-        const timestamp = new Date(data.timestamp || Date.now()).getTime();
-        
-        // Create synthetic OHLC if only price is available
-        const volatility = 0.001; // 0.1% volatility
-        const randomFactor = (Math.random() - 0.5) * volatility;
-        
-        return {
-          timestamp,
-          open: price * (1 + randomFactor),
-          high: price * (1 + Math.abs(randomFactor) * 1.5),
-          low: price * (1 - Math.abs(randomFactor) * 1.5),
-          close: price,
-          volume: parseFloat(data.volume || Math.random() * 1000000)
-        };
-      });
+      // Convert candles to PriceData format
+      const priceData: PriceData[] = Array.from(historicalData.values())
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map(candle => ({
+          timestamp: candle.timestamp,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+          volume: candle.volume
+        }));
 
       return calculateAllIndicators(priceData);
     } catch (error) {
       console.error('Error calculating technical indicators:', error);
       return {};
     }
-  }, [marketData]);
+  }, [historicalData]);
 
-  // Filter enabled indicators
   const enabledIndicators = indicatorConfigs.filter(config => config.enabled);
   
-  // Filter by category
   const filteredIndicators = selectedCategory === 'all' 
     ? enabledIndicators
     : enabledIndicators.filter(config => config.category === selectedCategory);
@@ -205,14 +255,26 @@ export default function TechnicalIndicatorsWidget({
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Technical Indicators - {symbol}
             </h3>
-            {Object.keys(indicators).length === 0 && (
-              <Badge variant="secondary" className="text-xs">
-                Need more data
+            {isLoading && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading
+              </Badge>
+            )}
+            {error && (
+              <Badge variant="destructive" className="text-xs">
+                {error}
+              </Badge>
+            )}
+            {!isLoading && !error && historicalData.size > 0 && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Clock className="h-3 w-3" />
+                {timeframe}
               </Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {enabledIndicators.length} indicators enabled
+            {enabledIndicators.length} indicators • {historicalData.size} candles
           </p>
         </div>
         
@@ -227,15 +289,52 @@ export default function TechnicalIndicatorsWidget({
               <Settings className="h-3 w-3" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configure Technical Indicators</DialogTitle>
               <DialogDescription>
-                Select which indicators to display on your dashboard
+                Select timeframe and indicators to display
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
+              {/* Timeframe Selection */}
+              <div className="space-y-2">
+                <Label>Timeframe (Bar Interval)</Label>
+                <Select value={timeframe} onValueChange={setTimeframe}>
+                  <SelectTrigger data-testid="select-timeframe">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEFRAME_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Period Selection */}
+              <div className="space-y-2">
+                <Label>Historical Period</Label>
+                <Select value={period} onValueChange={setPeriod}>
+                  <SelectTrigger data-testid="select-period">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIOD_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* Indicator Selection */}
               {categories.slice(1).map(category => {
                 const categoryIndicators = DEFAULT_INDICATORS.filter(ind => ind.category === category.id);
                 const Icon = category.icon;
@@ -247,28 +346,32 @@ export default function TechnicalIndicatorsWidget({
                       <h4 className="text-sm font-medium">{category.name}</h4>
                     </div>
                     <div className="space-y-2 pl-6">
-                      {categoryIndicators.map(indicator => (
-                        <div key={indicator.id} className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={indicator.id}
-                              checked={indicator.enabled}
-                              onCheckedChange={() => handleToggleIndicator(indicator.id)}
-                            />
-                            <div className="grid gap-1.5 leading-none">
-                              <label
-                                htmlFor={indicator.id}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                {indicator.name}
-                              </label>
-                              <p className="text-xs text-muted-foreground">
-                                {indicator.description}
-                              </p>
+                      {categoryIndicators.map(indicator => {
+                        const config = indicatorConfigs.find(c => c.id === indicator.id);
+                        return (
+                          <div key={indicator.id} className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={indicator.id}
+                                checked={config?.enabled}
+                                onCheckedChange={() => handleToggleIndicator(indicator.id)}
+                                data-testid={`checkbox-indicator-${indicator.id}`}
+                              />
+                              <div className="grid gap-1.5 leading-none">
+                                <label
+                                  htmlFor={indicator.id}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {indicator.name}
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {indicator.description}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <Separator className="mt-3" />
                   </div>
@@ -295,6 +398,7 @@ export default function TechnicalIndicatorsWidget({
               variant={isActive ? "default" : "outline"}
               onClick={() => setSelectedCategory(category.id)}
               className="flex items-center gap-1 text-xs flex-shrink-0"
+              data-testid={`button-category-${category.id}`}
             >
               <Icon className="h-3 w-3" />
               {category.name}
@@ -308,11 +412,21 @@ export default function TechnicalIndicatorsWidget({
 
       {/* Indicators Display */}
       <div className="flex-1 overflow-auto space-y-3 min-h-0" data-testid="indicators-list">
-        {Object.keys(indicators).length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-8">
+            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-primary" />
+            <p className="text-muted-foreground text-sm">Loading historical data...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-destructive">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-sm">{error}</p>
+          </div>
+        ) : Object.keys(indicators).length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Need at least 26 data points</p>
-            <p className="text-xs">to calculate technical indicators</p>
+            <p>Need at least 26 candles</p>
+            <p className="text-xs">to calculate indicators</p>
           </div>
         ) : filteredIndicators.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
@@ -332,7 +446,7 @@ export default function TechnicalIndicatorsWidget({
             return (
               <div
                 key={config.id}
-                className="p-3 bg-accent/20 rounded-lg border hover:bg-accent/30 transition-colors"
+                className="p-3 bg-accent/20 rounded-lg border hover-elevate"
                 data-testid={`indicator-${config.id}`}
               >
                 <div className="flex items-start justify-between mb-2">
@@ -353,7 +467,7 @@ export default function TechnicalIndicatorsWidget({
                 
                 <p className="text-xs text-muted-foreground mb-2">{description}</p>
                 
-                {/* Special visualizations for certain indicators */}
+                {/* RSI Progress Bar */}
                 {config.id === 'rsi' && indicator.lastValue && (
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -364,6 +478,7 @@ export default function TechnicalIndicatorsWidget({
                   </div>
                 )}
                 
+                {/* Stochastic Details */}
                 {config.id === 'stochastic' && indicator.lastValue && (
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -374,6 +489,7 @@ export default function TechnicalIndicatorsWidget({
                   </div>
                 )}
                 
+                {/* MACD Details */}
                 {config.id === 'macd' && indicator.lastValue?.metadata && (
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                     <div>
@@ -386,13 +502,14 @@ export default function TechnicalIndicatorsWidget({
                     </div>
                     <div>
                       <span className="text-muted-foreground">Histogram:</span>
-                      <div className={cn("font-mono", indicator.lastValue.metadata.histogram > 0 ? 'text-green-600' : 'text-red-600')}>
+                      <div className={cn("font-mono", indicator.lastValue.metadata.histogram > 0 ? 'text-positive' : 'text-negative')}>
                         {indicator.lastValue.metadata.histogram?.toFixed(4)}
                       </div>
                     </div>
                   </div>
                 )}
                 
+                {/* Bollinger Bands Details */}
                 {config.id === 'bollingerBands' && indicator.lastValue?.metadata && (
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                     <div>
