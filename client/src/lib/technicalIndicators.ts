@@ -4,6 +4,8 @@
  * Optimized for real-time market data processing
  */
 
+import { MINIMUM_CANDLES_FOR_INDICATORS } from './constants';
+
 export interface PriceData {
   timestamp: number;
   open: number;
@@ -406,8 +408,8 @@ export function convertToPriceData(marketDataArray: any[]): PriceData[] {
  * Calculate all indicators for given data
  */
 export function calculateAllIndicators(data: PriceData[]): Record<string, IndicatorResult> {
-  if (data.length < 26) {
-    return {}; // Need minimum data for most indicators
+  if (data.length < MINIMUM_CANDLES_FOR_INDICATORS) {
+    return {}; // Need minimum data for accurate indicator calculations
   }
   
   return {

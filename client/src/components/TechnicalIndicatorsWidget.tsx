@@ -39,7 +39,7 @@ import {
   type IndicatorResult,
   type PriceData
 } from '@/lib/technicalIndicators';
-import { fetchHistoricalCandles, type Candle } from '@/lib/fetchHistoricalCandles';
+import { fetchHistoricalCandles, type Candle, MINIMUM_CANDLES_FOR_INDICATORS } from '@/lib/fetchHistoricalCandles';
 
 interface TechnicalIndicatorsWidgetProps {
   symbol: string;
@@ -187,6 +187,8 @@ export default function TechnicalIndicatorsWidget({
         
         if (candles.size === 0) {
           setError('No data available');
+        } else if (candles.size < MINIMUM_CANDLES_FOR_INDICATORS) {
+          setError(`Insufficient data: ${candles.size}/${MINIMUM_CANDLES_FOR_INDICATORS} candles`);
         }
       } catch (err) {
         console.error('Failed to fetch historical data:', err);
@@ -202,7 +204,7 @@ export default function TechnicalIndicatorsWidget({
 
   // Calculate indicators from historical data
   const indicators = useMemo(() => {
-    if (historicalData.size < 26) {
+    if (historicalData.size < MINIMUM_CANDLES_FOR_INDICATORS) {
       return {};
     }
 
@@ -427,8 +429,9 @@ export default function TechnicalIndicatorsWidget({
         ) : Object.keys(indicators).length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Need at least 26 candles</p>
-            <p className="text-xs">to calculate indicators</p>
+            <p>Need at least {MINIMUM_CANDLES_FOR_INDICATORS} candles</p>
+            <p className="text-xs">Currently have: {historicalData.size}</p>
+            <p className="text-xs mt-2">Try selecting a longer period</p>
           </div>
         ) : filteredIndicators.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">

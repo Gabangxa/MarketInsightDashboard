@@ -1,3 +1,5 @@
+import { MINIMUM_CANDLES_FOR_INDICATORS } from './constants';
+
 export interface Candle {
   timestamp: number;
   open: number;
@@ -6,6 +8,9 @@ export interface Candle {
   close: number;
   volume: number;
 }
+
+// Re-export for convenience
+export { MINIMUM_CANDLES_FOR_INDICATORS };
 
 // Map our timeframe format to exchange-specific formats
 const timeframeMap = {
@@ -69,8 +74,11 @@ function calculateCandleCount(period: string, timeframe: string): number {
   const periodDuration = periodMs[period] || periodMs["24h"];
   const candleDuration = timeframeMs[timeframe] || timeframeMs["1h"];
   
-  // Calculate number of candles, with max limit of 1000 for API limits
-  return Math.min(Math.ceil(periodDuration / candleDuration), 1000);
+  // Calculate number of candles based on period
+  const calculatedCount = Math.ceil(periodDuration / candleDuration);
+  
+  // Ensure minimum candles for indicator calculations, max 1000 for API limits
+  return Math.min(Math.max(calculatedCount, MINIMUM_CANDLES_FOR_INDICATORS), 1000);
 }
 
 // Fetch from Binance
