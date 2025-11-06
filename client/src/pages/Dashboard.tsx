@@ -219,6 +219,9 @@ export default function Dashboard() {
     }
   };
 
+  // Stable exchanges array for Technical Indicators Widget
+  const technicalIndicatorExchanges = useMemo(() => ["bybit", "okx"], []);
+
   // Define all available widgets for the tab system
   const availableWidgets: WidgetConfig[] = useMemo(() => [
     {
@@ -351,7 +354,7 @@ export default function Dashboard() {
       component: (
         <TechnicalIndicatorsWidget
           symbol={selectedSymbol}
-          exchanges={["bybit", "okx"]}
+          exchanges={technicalIndicatorExchanges}
         />
       )
     }
@@ -359,7 +362,8 @@ export default function Dashboard() {
     watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
     removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
     orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
-    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation, handleSelectToken
+    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation, handleSelectToken,
+    technicalIndicatorExchanges
   ]);
 
   // Initialize tab system

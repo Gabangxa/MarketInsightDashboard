@@ -175,6 +175,7 @@ export default function TechnicalIndicatorsWidget({
   const [error, setError] = useState<string | null>(null);
 
   // Fetch historical data when symbol, timeframe, or period changes
+  // Note: exchanges prop should be a stable reference (useMemo) to avoid unnecessary refetches
   useEffect(() => {
     const loadHistoricalData = async () => {
       setIsLoading(true);
@@ -196,7 +197,8 @@ export default function TechnicalIndicatorsWidget({
     };
 
     loadHistoricalData();
-  }, [symbol, timeframe, period, exchanges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, timeframe, period]);
 
   // Calculate indicators from historical data
   const indicators = useMemo(() => {
