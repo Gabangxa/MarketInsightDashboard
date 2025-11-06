@@ -478,8 +478,9 @@ export default function Dashboard() {
         <div className="flex-1 overflow-hidden">
           <ResponsiveLayout
             widgets={activeTabWidgets}
+            initialLayout={activeTab?.layout}
             onLayoutChange={(layouts) => {
-              saveLayout({ [activeTabId]: layouts });
+              saveLayout(layouts);
             }}
             onSaveLayout={() => {
               toast({

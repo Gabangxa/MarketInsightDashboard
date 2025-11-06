@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,8 @@ export interface WidgetConfig {
 
 interface ResponsiveLayoutProps {
   widgets: WidgetConfig[];
-  onLayoutChange?: (layouts: Layout[]) => void;
+  initialLayout?: { [key: string]: Layout[] };
+  onLayoutChange?: (layouts: { [key: string]: Layout[] }) => void;
   onSaveLayout?: () => void;
   className?: string;
 }
@@ -170,8 +171,52 @@ function generateDefaultLayouts(widgets: WidgetConfig[]): { [key: string]: Layou
   return layouts;
 }
 
+// Merge saved layouts with default layouts to handle new widgets gracefully
+function mergeLayouts(
+  savedLayouts: { [key: string]: Layout[] } | undefined,
+  defaultLayouts: { [key: string]: Layout[] },
+  widgets: WidgetConfig[]
+): { [key: string]: Layout[] } {
+  if (!savedLayouts) {
+    return defaultLayouts;
+  }
+
+  const visibleWidgetIds = widgets.filter(w => w.isVisible !== false).map(w => w.id);
+  const merged: { [key: string]: Layout[] } = {};
+
+  // For each breakpoint
+  Object.keys(defaultLayouts).forEach(breakpoint => {
+    const savedLayout = savedLayouts[breakpoint] || [];
+    const defaultLayout = defaultLayouts[breakpoint] || [];
+
+    // Create a map of saved layouts by widget ID
+    const savedLayoutMap = new Map(savedLayout.map(l => [l.i, l]));
+
+    // Start with saved layouts for existing widgets
+    const mergedLayout: Layout[] = [];
+    
+    visibleWidgetIds.forEach(widgetId => {
+      if (savedLayoutMap.has(widgetId)) {
+        // Use saved layout
+        mergedLayout.push(savedLayoutMap.get(widgetId)!);
+      } else {
+        // Widget is new, use default layout
+        const defaultItem = defaultLayout.find(l => l.i === widgetId);
+        if (defaultItem) {
+          mergedLayout.push(defaultItem);
+        }
+      }
+    });
+
+    merged[breakpoint] = mergedLayout;
+  });
+
+  return merged;
+}
+
 export default function ResponsiveLayout({ 
   widgets, 
+  initialLayout,
   onLayoutChange, 
   onSaveLayout,
   className 
@@ -184,14 +229,22 @@ export default function ResponsiveLayout({
   const layoutsInitialized = useRef(false);
   const [layouts, setLayouts] = useState<{ [key: string]: Layout[] }>(() => {
     layoutsInitialized.current = true;
-    return generateDefaultLayouts(widgets);
+    const defaultLayouts = generateDefaultLayouts(widgets);
+    return mergeLayouts(initialLayout, defaultLayouts, widgets);
   });
+
+  // Reload layouts when widgets or initialLayout change (tab switching)
+  useEffect(() => {
+    const defaultLayouts = generateDefaultLayouts(widgets);
+    const mergedLayouts = mergeLayouts(initialLayout, defaultLayouts, widgets);
+    setLayouts(mergedLayouts);
+  }, [widgets, initialLayout]);
 
   const handleLayoutChange = (layout: Layout[], allLayouts: { [key: string]: Layout[] }) => {
     // Only update layouts if they've been initialized
     if (layoutsInitialized.current) {
       setLayouts(allLayouts);
-      onLayoutChange?.(layout);
+      onLayoutChange?.(allLayouts);
     }
   };
 
