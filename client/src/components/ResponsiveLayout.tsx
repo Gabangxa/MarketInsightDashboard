@@ -59,13 +59,13 @@ function generateDefaultLayouts(widgets: WidgetConfig[]): { [key: string]: Layou
   const visibleWidgets = widgets.filter(w => w.isVisible !== false);
   const layouts: { [key: string]: Layout[] } = {};
   
-  // Desktop layout (lg) - 3 column layout
+  // Desktop layout (lg) - use widget default sizes
   layouts.lg = [];
   let currentY = 0;
   let currentX = 0;
   
   visibleWidgets.forEach((widget, index) => {
-    const w = Math.min(widget.defaultSize.w, 4); // Max 4 cols (1/3 of 12)
+    const w = Math.min(widget.defaultSize.w, 12); // Max 12 cols (full width)
     const h = widget.defaultSize.h;
     
     // If widget won't fit on current row, move to next row
@@ -87,13 +87,13 @@ function generateDefaultLayouts(widgets: WidgetConfig[]): { [key: string]: Layou
     currentX += w;
   });
   
-  // Medium layout (md) - 2 column layout
+  // Medium layout (md) - use widget default sizes
   layouts.md = [];
   currentY = 0;
   currentX = 0;
   
   visibleWidgets.forEach((widget) => {
-    const w = Math.min(widget.defaultSize.w, 6); // Max 6 cols (1/2 of 12)
+    const w = Math.min(widget.defaultSize.w, 12); // Max 12 cols (full width)
     const h = widget.defaultSize.h;
     
     if (currentX + w > 12) {
