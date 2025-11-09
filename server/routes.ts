@@ -80,7 +80,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: "/ws",
+    verifyClient: (info, callback) => {
+      // Parse session from cookie
+      const sessionParser = (app as any)._router.stack
+        .filter((layer: any) => layer.name === 'session')
+        .map((layer: any) => layer.handle)[0];
+      
+      if (!sessionParser) {
+        callback(false, 401, "Session middleware not found");
+        return;
+      }
+
+      // Create fake request/response to use session parser
+      const req = info.req as any;
+      const res = { 
+        setHeader: () => {},
+        writeHead: () => {},
+        end: () => {}
+      } as any;
+
+      sessionParser(req, res, () => {
+        // Check if user is authenticated
+        if (req.session && req.session.passport && req.session.passport.user) {
+          callback(true);
+        } else {
+          callback(false, 401, "Unauthorized");
+        }
+      });
+    }
+  });
 
   // Store connected clients
   const clients = new Set<WebSocket>();
@@ -95,9 +126,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WebSocket server for client connections
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WebSocket, req: any) => {
     clients.add(ws);
-    console.log("Client connected to WebSocket");
+    const userId = req.session?.passport?.user;
+    console.log(`Client connected to WebSocket (userId: ${userId})`);
 
     ws.on("message", (message: string) => {
       try {
