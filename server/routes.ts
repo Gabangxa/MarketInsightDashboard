@@ -66,7 +66,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (err) {
         return res.status(500).json({ error: "Logout failed" });
       }
-      res.json({ success: true });
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destroy error:", destroyErr);
+        }
+        res.json({ success: true });
+      });
     });
   });
 
@@ -80,37 +85,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: "/ws",
-    verifyClient: (info, callback) => {
-      // Parse session from cookie
-      const sessionParser = (app as any)._router.stack
-        .filter((layer: any) => layer.name === 'session')
-        .map((layer: any) => layer.handle)[0];
-      
-      if (!sessionParser) {
-        callback(false, 401, "Session middleware not found");
-        return;
-      }
+  
+  // WebSocket authentication: We'll handle the upgrade event manually
+  // to properly parse the session using the configured middleware
+  const wss = new WebSocketServer({ noServer: true });
 
-      // Create fake request/response to use session parser
-      const req = info.req as any;
-      const res = { 
-        setHeader: () => {},
-        writeHead: () => {},
-        end: () => {}
-      } as any;
-
-      sessionParser(req, res, () => {
-        // Check if user is authenticated
-        if (req.session && req.session.passport && req.session.passport.user) {
-          callback(true);
-        } else {
-          callback(false, 401, "Unauthorized");
-        }
-      });
+  httpServer.on("upgrade", (request, socket, head) => {
+    if (request.url !== "/ws") {
+      socket.destroy();
+      return;
     }
+
+    // Use express session parser and passport to authenticate
+    (app as any).handle(request, {} as any, () => {
+      const req = request as any;
+      
+      // Check if user is authenticated after session parsing
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit("connection", ws, request);
+        });
+      } else {
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+      }
+    });
   });
 
   // Store connected clients
@@ -162,13 +161,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  // Webhook endpoint
+  // Webhook endpoint - accepts webhooks from external sources
+  // Uses authenticated user's ID if available, otherwise creates for all users to see
   app.post("/api/webhook", async (req, res) => {
     try {
       const { source, message, ...payload } = req.body;
+      const userId = req.isAuthenticated() ? (req.user as any).id : "public";
       
       const validated = insertWebhookMessageSchema.parse({
-        userId: "default-user",
+        userId,
         source: source || "Unknown",
         message: message || JSON.stringify(req.body),
         payload: Object.keys(payload).length > 0 ? payload : undefined,
