@@ -1,14 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -17,6 +12,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { insertAlertSchema } from "@shared/schema";
 
 export interface AlertConfig {
   id?: string;
@@ -38,84 +50,133 @@ interface AlertConfigPanelProps {
 
 const EXCHANGES = ["Binance", "Bybit", "OKX"];
 
-export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert }: AlertConfigPanelProps) {
-  const [alertType, setAlertType] = useState<"price" | "keyword">("price");
-  const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
-  const [symbol, setSymbol] = useState("BTCUSDT");
-  const [condition, setCondition] = useState(">");
-  const [value, setValue] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [maxTriggers, setMaxTriggers] = useState<string>(""); // empty string = unlimited
+// Extend the base schema with custom validation
+const alertFormSchema = insertAlertSchema.extend({
+  exchanges: z.array(z.string()).min(1, "Please select at least one exchange"),
+  type: z.enum(["price", "keyword"]),
+  symbol: z.string().optional(),
+  condition: z.string().optional(),
+  value: z.string().optional(),
+  keyword: z.string().optional(),
+  maxTriggers: z.number().int().positive().nullable().optional(),
+}).superRefine((data, ctx) => {
+  // Price alert validation
+  if (data.type === "price") {
+    if (!data.symbol || data.symbol.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Symbol is required for price alerts",
+        path: ["symbol"],
+      });
+    }
+    if (!data.value || data.value.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Price value is required",
+        path: ["value"],
+      });
+    } else if (isNaN(parseFloat(data.value)) || parseFloat(data.value) <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a valid positive number",
+        path: ["value"],
+      });
+    }
+    if (!data.condition) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Condition is required for price alerts",
+        path: ["condition"],
+      });
+    }
+  }
+  
+  // Keyword alert validation
+  if (data.type === "keyword") {
+    if (!data.keyword || data.keyword.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Keyword is required for keyword alerts",
+        path: ["keyword"],
+      });
+    }
+  }
+});
 
-  // Pre-fill form when editing
+type AlertFormValues = z.infer<typeof alertFormSchema>;
+
+export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert }: AlertConfigPanelProps) {
+  const form = useForm<AlertFormValues>({
+    resolver: zodResolver(alertFormSchema),
+    defaultValues: {
+      type: "price",
+      exchanges: [],
+      symbol: "BTCUSDT",
+      condition: ">",
+      value: "",
+      keyword: "",
+      maxTriggers: null,
+      userId: "default-user",
+    },
+  });
+
+  const alertType = form.watch("type");
+
+  // Pre-fill form when editing or reset when creating new
   useEffect(() => {
     if (editingAlert) {
-      setAlertType(editingAlert.type);
-      setSelectedExchanges(editingAlert.exchanges || []);
-      setMaxTriggers(editingAlert.maxTriggers?.toString() || "");
-      if (editingAlert.type === "price") {
-        setSymbol(editingAlert.symbol || "BTCUSDT");
-        setCondition(editingAlert.condition || ">");
-        setValue(editingAlert.value?.toString() || "");
-      } else {
-        setKeyword(editingAlert.keyword || "");
-      }
-    } else {
-      // Reset form when creating new alert
-      setAlertType("price");
-      setSelectedExchanges([]);
-      setSymbol("BTCUSDT");
-      setCondition(">");
-      setValue("");
-      setKeyword("");
-      setMaxTriggers("");
+      form.reset({
+        type: editingAlert.type,
+        exchanges: editingAlert.exchanges || [],
+        symbol: editingAlert.symbol || "BTCUSDT",
+        condition: editingAlert.condition || ">",
+        value: editingAlert.value || "",
+        keyword: editingAlert.keyword || "",
+        maxTriggers: editingAlert.maxTriggers ?? null,
+        userId: "default-user",
+      });
+    } else if (isOpen) {
+      form.reset({
+        type: "price",
+        exchanges: [],
+        symbol: "BTCUSDT",
+        condition: ">",
+        value: "",
+        keyword: "",
+        maxTriggers: null,
+        userId: "default-user",
+      });
     }
-  }, [editingAlert, isOpen]);
+  }, [editingAlert, isOpen, form]);
 
-  const toggleExchange = (exchange: string) => {
-    setSelectedExchanges(prev =>
-      prev.includes(exchange)
-        ? prev.filter(e => e !== exchange)
-        : [...prev, exchange]
-    );
-  };
-
-  const handleSave = () => {
-    // Validation
-    if (selectedExchanges.length === 0) {
-      alert("Please select at least one exchange");
-      return;
-    }
-
-    if (alertType === "price") {
-      if (!symbol.trim()) {
-        alert("Please enter a symbol");
-        return;
-      }
-      if (!value.trim() || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
-        alert("Please enter a valid positive number for price value");
-        return;
-      }
-    } else {
-      if (!keyword.trim()) {
-        alert("Please enter a keyword");
-        return;
-      }
-    }
-
-    const config: any = {
-      ...(editingAlert ? { id: editingAlert.id } : {}),
-      type: alertType,
-      exchanges: selectedExchanges,
-      maxTriggers: maxTriggers.trim() === "" ? null : parseInt(maxTriggers),
-      ...(alertType === "price" ? { symbol, condition, value: value } : { keyword })
+  const handleSubmit = (data: AlertFormValues) => {
+    const config: AlertConfig = {
+      ...(editingAlert?.id ? { id: editingAlert.id } : {}),
+      type: data.type,
+      exchanges: data.exchanges,
+      maxTriggers: data.maxTriggers,
+      ...(data.type === "price" 
+        ? { 
+            symbol: data.symbol, 
+            condition: data.condition, 
+            value: data.value 
+          } 
+        : { keyword: data.keyword }
+      )
     };
+    
     onSave?.(config);
     onClose();
   };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="alert-config-panel">
         <DialogHeader>
           <DialogTitle>{editingAlert ? "Edit Alert" : "Configure Alert"}</DialogTitle>
@@ -124,134 +185,189 @@ export default function AlertConfigPanel({ isOpen, onClose, onSave, editingAlert
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-          <div>
-            <Label htmlFor="alert-type" className="text-sm font-medium mb-2 block">
-              Alert Type
-            </Label>
-            <Select value={alertType} onValueChange={(v) => setAlertType(v as "price" | "keyword")}>
-              <SelectTrigger id="alert-type" data-testid="select-alert-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="price">Price Alert</SelectItem>
-                <SelectItem value="keyword">Keyword Alert</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium mb-2 block">
-              Monitor Exchanges
-            </Label>
-            <div className="space-y-2">
-              {EXCHANGES.map((exchange) => (
-                <div key={exchange} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`exchange-${exchange}`}
-                    checked={selectedExchanges.includes(exchange)}
-                    onCheckedChange={() => toggleExchange(exchange)}
-                    data-testid={`checkbox-exchange-${exchange.toLowerCase()}`}
-                  />
-                  <Label
-                    htmlFor={`exchange-${exchange}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {exchange}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {alertType === "price" ? (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="symbol" className="text-sm font-medium mb-2 block">
-                  Symbol
-                </Label>
-                <Input
-                  id="symbol"
-                  placeholder="e.g. BTCUSDT"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  data-testid="input-symbol"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="condition" className="text-sm font-medium mb-2 block">
-                  Condition
-                </Label>
-                <Select value={condition} onValueChange={setCondition}>
-                  <SelectTrigger id="condition" data-testid="select-condition">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value=">">Greater than (&gt;)</SelectItem>
-                    <SelectItem value="<">Less than (&lt;)</SelectItem>
-                    <SelectItem value=">=">Greater or equal (&gt;=)</SelectItem>
-                    <SelectItem value="<=">Less or equal (&lt;=)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="price-value" className="text-sm font-medium mb-2 block">
-                  Price Value
-                </Label>
-                <Input
-                  id="price-value"
-                  type="number"
-                  placeholder="e.g. 65000"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  data-testid="input-price-value"
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <Label htmlFor="keyword" className="text-sm font-medium mb-2 block">
-                Keyword
-              </Label>
-              <Input
-                id="keyword"
-                placeholder="e.g. breakout"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                data-testid="input-keyword"
-              />
-            </div>
-          )}
-
-          <div>
-            <Label htmlFor="max-triggers" className="text-sm font-medium mb-2 block">
-              Max Triggers
-            </Label>
-            <Input
-              id="max-triggers"
-              type="number"
-              min="1"
-              placeholder="Leave empty for unlimited"
-              value={maxTriggers}
-              onChange={(e) => setMaxTriggers(e.target.value)}
-              data-testid="input-max-triggers"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alert Type</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-alert-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="price">Price Alert</SelectItem>
+                      <SelectItem value="keyword">Keyword Alert</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              How many times this alert can trigger. Leave empty for unlimited triggers.
-            </p>
-          </div>
 
-        </div>
+            <FormField
+              control={form.control}
+              name="exchanges"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Monitor Exchanges</FormLabel>
+                  <div className="space-y-2">
+                    {EXCHANGES.map((exchange) => (
+                      <FormField
+                        key={exchange}
+                        control={form.control}
+                        name="exchanges"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(exchange)}
+                                onCheckedChange={(checked) => {
+                                  const newValue = checked
+                                    ? [...(field.value || []), exchange]
+                                    : field.value?.filter((e) => e !== exchange) || [];
+                                  field.onChange(newValue);
+                                }}
+                                data-testid={`checkbox-exchange-${exchange.toLowerCase()}`}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal cursor-pointer">
+                              {exchange}
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <Button
-          className="w-full"
-          onClick={handleSave}
-          data-testid="button-save-alert"
-        >
-          Save Alert
-        </Button>
+            {alertType === "price" ? (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="symbol"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Symbol</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. BTCUSDT"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          data-testid="input-symbol"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="condition"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-condition">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value=">">Greater than (&gt;)</SelectItem>
+                          <SelectItem value="<">Less than (&lt;)</SelectItem>
+                          <SelectItem value=">=">Greater or equal (&gt;=)</SelectItem>
+                          <SelectItem value="<=">Less or equal (&lt;=)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price Value</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 65000"
+                          {...field}
+                          data-testid="input-price-value"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ) : (
+              <FormField
+                control={form.control}
+                name="keyword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Keyword</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g. breakout"
+                        {...field}
+                        data-testid="input-keyword"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="maxTriggers"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Max Triggers</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Leave empty for unlimited"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? null : parseInt(value));
+                      }}
+                      data-testid="input-max-triggers"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    How many times this alert can trigger. Leave empty for unlimited triggers.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full"
+              data-testid="button-save-alert"
+            >
+              Save Alert
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
