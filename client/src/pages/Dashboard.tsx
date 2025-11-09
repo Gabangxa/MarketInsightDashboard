@@ -3,22 +3,18 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload, RotateCcw } from "lucide-react";
 import TabManager from "@/components/TabManager";
-import ResponsiveLayout, { type WidgetConfig } from "@/components/ResponsiveLayout";
-import MarketDataWidget from "@/components/MarketDataWidget";
-import OrderBookWidget from "@/components/OrderBookWidget";
-import WebhookWidget from "@/components/WebhookWidget";
+import ResponsiveLayout from "@/components/ResponsiveLayout";
 import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
-import WatchlistWidget from "@/components/WatchlistWidget";
 import OrderBookConfigModal from "@/components/OrderBookConfigModal";
 import MarketDataConfigModal from "@/components/MarketDataConfigModal";
-import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
 import { useMarketWebSocket } from "@/lib/useMarketWebSocket";
 import { aggregateMarketData, aggregateOrderBook } from "@/lib/marketAggregation";
 import { useAlertMonitor } from "@/lib/useAlertMonitor";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTabSystem } from "@/hooks/useTabSystem";
 import { useToast } from "@/hooks/use-toast";
+import { createAvailableWidgets } from "@/config/widgets";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 
 export default function Dashboard() {
@@ -223,142 +219,45 @@ export default function Dashboard() {
   const technicalIndicatorExchanges = useMemo(() => ["bybit", "okx"], []);
 
   // Define all available widgets for the tab system
-  const availableWidgets: WidgetConfig[] = useMemo(() => [
-    {
-      id: "watchlist-1",
-      title: "Watchlist",
-      category: "data",
-      priority: "high",
-      defaultSize: { w: 3, h: 8, minW: 3, minH: 4 },
-      component: (
-        <WatchlistWidget
-          tokens={watchlistData}
-          selectedSymbol={selectedSymbol}
-          onAddToken={(symbol) => addWatchlistMutation.mutate(symbol)}
-          onRemoveToken={(symbol) => {
-            const token = watchlistTokens.find(t => t.symbol === symbol);
-            if (token) removeWatchlistMutation.mutate(token.id);
-          }}
-          onSelectToken={handleSelectToken}
-        />
-      )
+  const availableWidgets = useMemo(() => createAvailableWidgets({
+    watchlistData,
+    selectedSymbol,
+    onAddToken: (symbol) => addWatchlistMutation.mutate(symbol),
+    onRemoveToken: (symbol) => {
+      const token = watchlistTokens.find(t => t.symbol === symbol);
+      if (token) removeWatchlistMutation.mutate(token.id);
     },
-    {
-      id: "market-1", 
-      title: "Market Data",
-      category: "trading",
-      priority: "high",
-      defaultSize: { w: 4, h: 3, minW: 3, minH: 2 },
-      component: (
-        <MarketDataWidget
-          data={aggregatedMarketData || {
-            symbol: selectedSymbol,
-            price: 0,
-            priceChange: 0,
-            priceChangePercent: 0,
-            volume24hUSDT: 0,
-            allTimeHigh: 0,
-            allTimeLow: 0,
-            exchanges: [],
-          }}
-          onConfigure={() => {
-            console.log("Opening market config modal");
-            setIsMarketConfigOpen(true);
-          }}
-        />
-      )
+    onSelectToken: handleSelectToken,
+    aggregatedMarketData,
+    onMarketConfigure: () => {
+      console.log("Opening market config modal");
+      setIsMarketConfigOpen(true);
     },
-    {
-      id: "orderbook-1",
-      title: "Order Book", 
-      category: "trading",
-      priority: "high",
-      defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },
-      component: (
-        <OrderBookWidget
-          data={aggregatedOrderBook || {
-            symbol: selectedSymbol,
-            bids: [],
-            asks: [],
-            spread: 0,
-            spreadPercent: 0,
-            exchanges: [],
-          }}
-          viewMode={orderBookViewMode}
-          onConfigure={() => {
-            console.log("Opening order book config modal");
-            setIsOrderBookConfigOpen(true);
-          }}
-        />
-      )
+    aggregatedOrderBook,
+    orderBookViewMode,
+    onOrderBookConfigure: () => {
+      console.log("Opening order book config modal");
+      setIsOrderBookConfigOpen(true);
     },
-    {
-      id: "webhook-1",
-      title: "Webhook Messages",
-      category: "alerts", 
-      priority: "medium",
-      defaultSize: { w: 5, h: 5, minW: 3, minH: 4 },
-      component: (
-        <WebhookWidget
-          messages={webhookMessages.map(wh => ({
-            ...wh,
-            timestamp: new Date(wh.timestamp),
-          }))}
-          onToggleBookmark={(id) => {
-            const msg = webhookMessages.find(m => m.id === id);
-            if (msg) {
-              toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
-            }
-          }}
-        />
-      )
+    webhookMessages,
+    onToggleBookmark: (id) => {
+      const msg = webhookMessages.find(m => m.id === id);
+      if (msg) {
+        toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
+      }
     },
-    {
-      id: "alerts-1",
-      title: "Alerts",
-      category: "alerts",
-      priority: "medium", 
-      defaultSize: { w: 5, h: 3, minW: 4, minH: 2 },
-      component: (
-        <AlertsWidget
-          alerts={alerts.map(a => ({
-            id: a.id,
-            type: a.type as "price" | "keyword",
-            exchanges: a.exchanges as string[],
-            condition: a.condition || undefined,
-            value: a.value ? parseFloat(a.value) : undefined,
-            keyword: a.keyword || undefined,
-            triggered: a.triggered,
-            lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
-            triggerCount: a.triggerCount,
-            maxTriggers: a.maxTriggers,
-          }))}
-          onAddAlert={() => {
-            setEditingAlert(null);
-            setIsAlertPanelOpen(true);
-          }}
-          onEditAlert={(alert) => {
-            setEditingAlert(alert);
-            setIsAlertPanelOpen(true);
-          }}
-          onDeleteAlert={(id) => deleteAlertMutation.mutate(id)}
-        />
-      )
+    alerts,
+    onAddAlert: () => {
+      setEditingAlert(null);
+      setIsAlertPanelOpen(true);
     },
-    {
-      id: "technical-indicators-1",
-      title: "Technical Indicators",
-      category: "trading",
-      priority: "medium",
-      defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
-      component: (
-        <TechnicalIndicatorsWidget
-          symbol={selectedSymbol}
-          exchanges={technicalIndicatorExchanges}
-        />
-      )
-    }
-  ], [
+    onEditAlert: (alert) => {
+      setEditingAlert(alert);
+      setIsAlertPanelOpen(true);
+    },
+    onDeleteAlert: (id) => deleteAlertMutation.mutate(id),
+    technicalIndicatorExchanges,
+  }), [
     watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
     removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
     orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
