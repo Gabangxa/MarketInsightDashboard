@@ -30,6 +30,33 @@ export interface IndicatorResult {
 }
 
 /**
+ * Calculates a Recursive Moving Average (RMA), also known as Wilder's Smoothing.
+ * This is the standard smoothing used for RSI and ATR.
+ */
+function calculateRMA(data: number[], period: number): number[] {
+  const rmaValues: number[] = [];
+  if (data.length < period) return rmaValues;
+
+  // Calculate first value as simple SMA
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += data[i];
+  }
+  let prevRMA = sum / period;
+  rmaValues.push(prevRMA);
+
+  // Calculate subsequent values using recursive formula
+  const alpha = 1 / period; // Wilder's smoothing uses 1/N
+  for (let i = period; i < data.length; i++) {
+    const rma = (data[i] * alpha) + (prevRMA * (1 - alpha));
+    rmaValues.push(rma);
+    prevRMA = rma;
+  }
+
+  return rmaValues;
+}
+
+/**
  * Simple Moving Average (SMA)
  */
 export function calculateSMA(data: PriceData[], period: number): IndicatorResult {
@@ -94,36 +121,50 @@ export function calculateEMA(data: PriceData[], period: number): IndicatorResult
  */
 export function calculateRSI(data: PriceData[], period: number = 14): IndicatorResult {
   const values: IndicatorValue[] = [];
-  
   if (data.length < period + 1) {
     return { name: `RSI(${period})`, values: [], config: { period } };
   }
-  
+
   // Calculate price changes
-  const changes: number[] = [];
+  const gains: number[] = [];
+  const losses: number[] = [];
   for (let i = 1; i < data.length; i++) {
-    changes.push(data[i].close - data[i - 1].close);
+    const change = data[i].close - data[i - 1].close;
+    gains.push(change > 0 ? change : 0);
+    losses.push(change < 0 ? Math.abs(change) : 0);
   }
-  
-  for (let i = period - 1; i < changes.length; i++) {
-    const slice = changes.slice(i - period + 1, i + 1);
+
+  // Calculate smoothed averages using RMA
+  const avgGains = calculateRMA(gains, period);
+  const avgLosses = calculateRMA(losses, period);
+
+  // Calculate RSI values
+  for (let i = 0; i < avgGains.length; i++) {
+    const avgGain = avgGains[i];
+    const avgLoss = avgLosses[i];
     
-    const gains = slice.filter(change => change > 0);
-    const losses = slice.filter(change => change < 0).map(loss => Math.abs(loss));
+    // Handle edge cases for zero values
+    let rsi: number;
+    let rs: number;
+    if (avgLoss === 0 && avgGain === 0) {
+      rsi = 50; // Flat market, neutral RSI
+      rs = 1; // Neutral RS
+    } else if (avgLoss === 0) {
+      rsi = 100; // Only gains, RSI at maximum
+      rs = Infinity; // Infinite RS when no losses
+    } else {
+      rs = avgGain / avgLoss;
+      rsi = 100 - (100 / (1 + rs));
+    }
     
-    const avgGain = gains.length > 0 ? gains.reduce((acc, gain) => acc + gain, 0) / period : 0;
-    const avgLoss = losses.length > 0 ? losses.reduce((acc, loss) => acc + loss, 0) / period : 0;
-    
-    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-    const rsi = 100 - (100 / (1 + rs));
-    
-    // Generate signals
     let signal: 'buy' | 'sell' | 'hold' = 'hold';
     if (rsi <= 30) signal = 'buy';
     else if (rsi >= 70) signal = 'sell';
     
+    // We start from `period` (index `period`) because RMA adds first value at index `period-1`
+    // and RSI needs 1 prior change, so data[period] aligns with first RMA.
     values.push({
-      timestamp: data[i + 1].timestamp,
+      timestamp: data[i + period].timestamp,
       value: rsi,
       signal,
       metadata: { avgGain, avgLoss, rs }
@@ -329,26 +370,27 @@ export function calculateATR(data: PriceData[], period: number = 14): IndicatorR
     const trueRange = Math.max(tr1, tr2, tr3);
     trueRanges.push(trueRange);
   }
+
+  // Calculate ATR using RMA
+  const atrValues = calculateRMA(trueRanges, period);
   
-  // Calculate ATR using SMA of True Range
-  for (let i = period - 1; i < trueRanges.length; i++) {
-    const slice = trueRanges.slice(i - period + 1, i + 1);
-    const atr = slice.reduce((acc, tr) => acc + tr, 0) / period;
-    
-    values.push({
-      timestamp: data[i + 1].timestamp,
+  const values_list: IndicatorValue[] = atrValues.map((atr, i) => {
+    // We start from `period` (index `period`) because RMA adds first value at index `period-1`
+    // and TR needs 1 prior bar, so data[period] aligns with first RMA.
+    return {
+      timestamp: data[i + period].timestamp,
       value: atr,
       metadata: {
-        trueRange: trueRanges[i]
+        trueRange: trueRanges[i + period - 1] // Get the corresponding TR
       }
-    });
-  }
+    };
+  });
   
   return {
     name: `ATR(${period})`,
-    values,
+    values: values_list,
     config: { period },
-    lastValue: values[values.length - 1]
+    lastValue: values_list[values_list.length - 1]
   };
 }
 

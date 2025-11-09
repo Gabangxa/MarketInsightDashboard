@@ -2,7 +2,7 @@
 
 ## Overview
 
-A modular, real-time cryptocurrency market monitoring dashboard that aggregates data from multiple exchanges (Binance, Bybit, OKX) via WebSocket connections. The application provides live price tracking, order book visualization, customizable alerts, webhook message monitoring, and a drag-and-drop widget-based interface with persistent user configurations.
+A modular, real-time cryptocurrency market monitoring dashboard that aggregates data from multiple exchanges (Binance, Bybit, OKX) via WebSocket connections. The application provides live price tracking, order book visualization, customizable alerts, webhook message monitoring, technical indicators, and a drag-and-drop widget-based interface with persistent user configurations. Includes full user authentication system.
 
 ## User Preferences
 
