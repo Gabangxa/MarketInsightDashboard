@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/AppSidebar";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 import { useState } from "react";
 import { LayoutGrid, LogOut, Loader2 } from "lucide-react";
@@ -25,6 +26,7 @@ function Router({ activeView, onViewChange, isConnected }: { activeView: string;
 
 function AuthenticatedApp() {
   const { user, isLoading, logout } = useAuth();
+  const [location] = useLocation();
   const [activeView, setActiveView] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(true);
 
@@ -42,7 +44,10 @@ function AuthenticatedApp() {
   }
 
   if (!user) {
-    return <Login />;
+    if (location === "/login") {
+      return <Login />;
+    }
+    return <Landing />;
   }
 
   return (
