@@ -10,16 +10,9 @@ import type { Alert, WebhookMessage } from "@shared/schema";
 
 interface WidgetFactoryParams {
   // Watchlist widget
-  watchlistData: Array<{
-    symbol: string;
-    price: number;
-    change24h: number;
-    volume24h: number;
-    change7d: number;
-  }>;
+  marketData: Map<string, Map<string, any>>;
   selectedSymbol: string;
-  onAddToken: (symbol: string) => void;
-  onRemoveToken: (symbol: string) => void;
+  selectedExchanges: string[];
   onSelectToken: (symbol: string) => void;
   
   // Market data widget
@@ -45,10 +38,8 @@ interface WidgetFactoryParams {
   onToggleBookmark: (id: string) => void;
   
   // Alerts widget
-  alerts: Alert[];
   onAddAlert: () => void;
   onEditAlert: (alert: AlertWidgetType) => void;
-  onDeleteAlert: (id: string) => void;
   
   // Technical indicators widget
   technicalIndicatorExchanges: string[];
@@ -64,10 +55,9 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       defaultSize: { w: 3, h: 8, minW: 3, minH: 4 },
       component: (
         <WatchlistWidget
-          tokens={params.watchlistData}
+          marketData={params.marketData}
+          selectedExchanges={params.selectedExchanges}
           selectedSymbol={params.selectedSymbol}
-          onAddToken={params.onAddToken}
-          onRemoveToken={params.onRemoveToken}
           onSelectToken={params.onSelectToken}
         />
       )
@@ -139,21 +129,8 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       defaultSize: { w: 5, h: 3, minW: 4, minH: 2 },
       component: (
         <AlertsWidget
-          alerts={params.alerts.map(a => ({
-            id: a.id,
-            type: a.type as "price" | "keyword",
-            exchanges: a.exchanges as string[],
-            condition: a.condition || undefined,
-            value: a.value ? parseFloat(a.value) : undefined,
-            keyword: a.keyword || undefined,
-            triggered: a.triggered,
-            lastTriggered: a.lastTriggered ? new Date(a.lastTriggered) : undefined,
-            triggerCount: a.triggerCount,
-            maxTriggers: a.maxTriggers,
-          }))}
           onAddAlert={params.onAddAlert}
           onEditAlert={params.onEditAlert}
-          onDeleteAlert={params.onDeleteAlert}
         />
       )
     },

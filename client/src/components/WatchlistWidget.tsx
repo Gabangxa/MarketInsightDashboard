@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { aggregateMarketData } from "@/lib/marketAggregation";
+import type { WatchlistToken as WatchlistTokenType } from "@shared/schema";
 
 export interface WatchlistToken {
   symbol: string;
@@ -15,30 +19,112 @@ export interface WatchlistToken {
 }
 
 interface WatchlistWidgetProps {
-  tokens: WatchlistToken[];
+  marketData: Map<string, Map<string, any>>;
+  selectedExchanges: string[];
   maxTokens?: number;
-  onAddToken?: (symbol: string) => void;
-  onRemoveToken?: (symbol: string) => void;
   onSelectToken?: (symbol: string) => void;
   selectedSymbol?: string;
 }
 
 export default function WatchlistWidget({
-  tokens,
+  marketData,
+  selectedExchanges,
   maxTokens = 10,
-  onAddToken,
-  onRemoveToken,
   onSelectToken,
   selectedSymbol
 }: WatchlistWidgetProps) {
   const [newSymbol, setNewSymbol] = useState("");
 
+  // Fetch watchlist
+  const { data: watchlistTokens = [], isLoading } = useQuery<WatchlistTokenType[]>({
+    queryKey: ["/api/watchlist"],
+  });
+
+  // Add watchlist mutation
+  const addWatchlistMutation = useMutation({
+    mutationFn: async (symbol: string) => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        symbol,
+        exchanges: selectedExchanges,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+    },
+  });
+
+  // Remove watchlist mutation
+  const removeWatchlistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/watchlist/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+    },
+  });
+
+  // Calculate watchlist display data
+  const tokens = useMemo(() => {
+    return watchlistTokens.map((token) => {
+      const symbolData = marketData.get(token.symbol);
+      if (!symbolData) {
+        return {
+          id: token.id,
+          symbol: token.symbol,
+          price: 0,
+          change24h: 0,
+          volume24h: 0,
+          change7d: 0,
+        };
+      }
+
+      const aggregated = aggregateMarketData(token.symbol, symbolData);
+      if (!aggregated) {
+        return {
+          id: token.id,
+          symbol: token.symbol,
+          price: 0,
+          change24h: 0,
+          volume24h: 0,
+          change7d: 0,
+        };
+      }
+
+      return {
+        id: token.id,
+        symbol: token.symbol,
+        price: aggregated.price,
+        change24h: aggregated.priceChangePercent,
+        volume24h: aggregated.volume24hUSDT,
+        change7d: aggregated.priceChangePercent * 1.2, // Mock 7d change
+      };
+    });
+  }, [watchlistTokens, marketData, selectedExchanges]);
+
   const handleAddToken = () => {
     if (newSymbol.trim() && tokens.length < maxTokens) {
-      onAddToken?.(newSymbol.trim().toUpperCase());
+      addWatchlistMutation.mutate(newSymbol.trim().toUpperCase());
       setNewSymbol("");
     }
   };
+
+  const handleRemoveToken = (symbol: string) => {
+    const token = watchlistTokens.find(t => t.symbol === symbol);
+    if (token) {
+      removeWatchlistMutation.mutate(token.id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-watchlist">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-sm text-muted-foreground">Loading watchlist...</div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-watchlist">
@@ -138,7 +224,7 @@ export default function WatchlistWidget({
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveToken?.(token.symbol);
+                  handleRemoveToken(token.symbol);
                 }}
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                 data-testid={`button-remove-${token.symbol}`}

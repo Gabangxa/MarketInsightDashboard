@@ -32,17 +32,16 @@ export default function Dashboard() {
   // WebSocket connection
   const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
 
-  // Fetch watchlist
+  // Fetch data for coordination (WebSocket subscriptions, alert monitoring)
+  // These queries are shared with widgets (React Query deduplicates automatically)
   const { data: watchlistTokens = [] } = useQuery<WatchlistToken[]>({
     queryKey: ["/api/watchlist"],
   });
 
-  // Fetch alerts
   const { data: alerts = [] } = useQuery<Alert[]>({
     queryKey: ["/api/alerts"],
   });
 
-  // Fetch webhooks
   const { data: webhookMessages = [] } = useQuery<WebhookMessage[]>({
     queryKey: ["/api/webhooks"],
   });
@@ -54,30 +53,7 @@ export default function Dashboard() {
     newWebhook,
   });
 
-  // Watchlist mutations
-  const addWatchlistMutation = useMutation({
-    mutationFn: async (symbol: string) => {
-      const res = await apiRequest("POST", "/api/watchlist", {
-        symbol,
-        exchanges: selectedExchanges,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-    },
-  });
-
-  const removeWatchlistMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/watchlist/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-    },
-  });
-
-  // Alert mutations
+  // Alert mutations (for add/update only - delete is handled by AlertsWidget)
   const addAlertMutation = useMutation({
     mutationFn: async (config: any) => {
       const res = await apiRequest("POST", "/api/alerts", config);
@@ -100,15 +76,6 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
       setIsAlertPanelOpen(false);
       setEditingAlert(null);
-    },
-  });
-
-  const deleteAlertMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/alerts/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
     },
   });
 
@@ -170,40 +137,6 @@ export default function Dashboard() {
     return aggregateOrderBook(selectedSymbol, symbolOrderBooks);
   }, [selectedSymbol, orderBooks]);
 
-  // Calculate watchlist display data
-  const watchlistData = useMemo(() => {
-    return watchlistTokens.map((token) => {
-      const symbolData = marketData.get(token.symbol);
-      if (!symbolData) {
-        return {
-          symbol: token.symbol,
-          price: 0,
-          change24h: 0,
-          volume24h: 0,
-          change7d: 0,
-        };
-      }
-
-      const aggregated = aggregateMarketData(token.symbol, symbolData);
-      if (!aggregated) {
-        return {
-          symbol: token.symbol,
-          price: 0,
-          change24h: 0,
-          volume24h: 0,
-          change7d: 0,
-        };
-      }
-
-      return {
-        symbol: token.symbol,
-        price: aggregated.price,
-        change24h: aggregated.priceChangePercent,
-        volume24h: aggregated.volume24hUSDT,
-        change7d: aggregated.priceChangePercent * 1.2, // Mock 7d change
-      };
-    });
-  }, [watchlistTokens, marketData]);
 
   // Handler for selecting a token from watchlist
   const handleSelectToken = (symbol: string) => {
@@ -220,13 +153,9 @@ export default function Dashboard() {
 
   // Define all available widgets for the tab system
   const availableWidgets = useMemo(() => createAvailableWidgets({
-    watchlistData,
+    marketData,
     selectedSymbol,
-    onAddToken: (symbol) => addWatchlistMutation.mutate(symbol),
-    onRemoveToken: (symbol) => {
-      const token = watchlistTokens.find(t => t.symbol === symbol);
-      if (token) removeWatchlistMutation.mutate(token.id);
-    },
+    selectedExchanges,
     onSelectToken: handleSelectToken,
     aggregatedMarketData,
     onMarketConfigure: () => {
@@ -246,7 +175,6 @@ export default function Dashboard() {
         toggleBookmarkMutation.mutate({ id, bookmarked: msg.bookmarked });
       }
     },
-    alerts,
     onAddAlert: () => {
       setEditingAlert(null);
       setIsAlertPanelOpen(true);
@@ -255,14 +183,11 @@ export default function Dashboard() {
       setEditingAlert(alert);
       setIsAlertPanelOpen(true);
     },
-    onDeleteAlert: (id) => deleteAlertMutation.mutate(id),
     technicalIndicatorExchanges,
   }), [
-    watchlistData, selectedSymbol, addWatchlistMutation, watchlistTokens, 
-    removeWatchlistMutation, aggregatedMarketData, aggregatedOrderBook,
-    orderBookViewMode, webhookMessages, toggleBookmarkMutation, alerts,
-    setEditingAlert, setIsAlertPanelOpen, deleteAlertMutation, handleSelectToken,
-    technicalIndicatorExchanges
+    marketData, selectedSymbol, selectedExchanges, aggregatedMarketData, 
+    aggregatedOrderBook, orderBookViewMode, webhookMessages, 
+    toggleBookmarkMutation, handleSelectToken, technicalIndicatorExchanges
   ]);
 
   // Initialize tab system
