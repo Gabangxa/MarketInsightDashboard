@@ -10,7 +10,7 @@ interface TabSystemState {
 
 const DEFAULT_TAB: Omit<TabConfig, 'id' | 'createdAt' | 'updatedAt'> = {
   name: 'Main Dashboard',
-  description: 'Default dashboard with all widgets',
+  description: 'Core trading widgets and market data',
   widgets: [
     'watchlist-1',
     'market-1', 
@@ -226,6 +226,19 @@ export function useTabSystem(availableWidgets: WidgetConfig[]) {
     });
   }, []);
 
+  // Add widgets to active tab
+  const addWidgetsToActiveTab = useCallback((widgetIds: string[]) => {
+    if (!activeTab) return;
+    
+    // Merge new widget IDs with existing ones, ensuring uniqueness
+    const updatedWidgets = Array.from(new Set([...activeTab.widgets, ...widgetIds]));
+    
+    updateTab(activeTab.id, {
+      widgets: updatedWidgets,
+      updatedAt: new Date()
+    });
+  }, [activeTab, updateTab]);
+
   return {
     // State
     tabs: state.tabs,
@@ -240,6 +253,7 @@ export function useTabSystem(availableWidgets: WidgetConfig[]) {
     switchTab,
     reorderTabs,
     saveLayout,
+    addWidgetsToActiveTab,
     
     // Import/Export
     exportTabs,

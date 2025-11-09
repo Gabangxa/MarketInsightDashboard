@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload, RotateCcw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import TabManager from "@/components/TabManager";
 import ResponsiveLayout from "@/components/ResponsiveLayout";
 import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
@@ -26,6 +29,8 @@ function DashboardContent() {
   const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
+  const [isAddWidgetDialogOpen, setIsAddWidgetDialogOpen] = useState(false);
+  const [selectedWidgetsToAdd, setSelectedWidgetsToAdd] = useState<string[]>([]);
 
   const { selectedSymbol, setSelectedSymbol } = useSymbol();
 
@@ -176,6 +181,7 @@ function DashboardContent() {
     switchTab,
     reorderTabs,
     saveLayout,
+    addWidgetsToActiveTab,
     exportTabs,
     importTabs,
     resetTabs
@@ -210,6 +216,20 @@ function DashboardContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                setSelectedWidgetsToAdd([]);
+                setIsAddWidgetDialogOpen(true);
+              }}
+              className="gap-2"
+              data-testid="button-add-widget"
+            >
+              <Plus className="h-4 w-4" />
+              Add Widget
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -338,6 +358,111 @@ function DashboardContent() {
         selectedExchanges={selectedExchanges}
         onExchangesChange={setSelectedExchanges}
       />
+
+      {/* Add Widget Dialog */}
+      <Dialog open={isAddWidgetDialogOpen} onOpenChange={setIsAddWidgetDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Widgets to {activeTab?.name}</DialogTitle>
+            <DialogDescription>
+              Select widgets to add to this tab
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {(() => {
+              // Filter out widgets already in the current tab
+              const availableToAdd = availableWidgets.filter(
+                widget => !activeTab?.widgets.includes(widget.id)
+              );
+
+              if (availableToAdd.length === 0) {
+                return (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-widgets-available">
+                    All available widgets have already been added to this tab.
+                  </div>
+                );
+              }
+
+              // Group by category
+              const widgetsByCategory = availableToAdd.reduce((acc, widget) => {
+                const category = widget.category || 'other';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(widget);
+                return acc;
+              }, {} as Record<string, typeof availableWidgets>);
+
+              return Object.entries(widgetsByCategory).map(([category, widgets]) => (
+                <div key={category}>
+                  <h4 className="text-sm font-medium capitalize text-muted-foreground mb-2" data-testid={`heading-widget-category-${category}`}>
+                    {category}
+                  </h4>
+                  <div className="space-y-2 pl-4">
+                    {widgets.map((widget) => (
+                      <div key={widget.id} className="flex items-center space-x-2" data-testid={`widget-option-${widget.id}`}>
+                        <Checkbox
+                          id={`add-widget-${widget.id}`}
+                          checked={selectedWidgetsToAdd.includes(widget.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedWidgetsToAdd(prev => [...prev, widget.id]);
+                            } else {
+                              setSelectedWidgetsToAdd(prev => prev.filter(id => id !== widget.id));
+                            }
+                          }}
+                          data-testid={`checkbox-add-widget-${widget.id}`}
+                        />
+                        <label
+                          htmlFor={`add-widget-${widget.id}`}
+                          className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+                          data-testid={`label-add-widget-${widget.id}`}
+                        >
+                          <span data-testid={`text-widget-title-${widget.id}`}>{widget.title}</span>
+                          {widget.priority && (
+                            <Badge variant={widget.priority === 'high' ? 'default' : 'secondary'} className="text-xs" data-testid={`badge-widget-priority-${widget.id}`}>
+                              {widget.priority}
+                            </Badge>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedWidgetsToAdd([]);
+                setIsAddWidgetDialogOpen(false);
+              }}
+              data-testid="button-cancel-add-widget"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedWidgetsToAdd.length > 0) {
+                  addWidgetsToActiveTab(selectedWidgetsToAdd);
+                  toast({
+                    title: "Widgets Added",
+                    description: `Added ${selectedWidgetsToAdd.length} widget${selectedWidgetsToAdd.length > 1 ? 's' : ''} to ${activeTab?.name}`
+                  });
+                  setSelectedWidgetsToAdd([]);
+                  setIsAddWidgetDialogOpen(false);
+                }
+              }}
+              disabled={selectedWidgetsToAdd.length === 0}
+              data-testid="button-confirm-add-widget"
+            >
+              Add {selectedWidgetsToAdd.length > 0 && `(${selectedWidgetsToAdd.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
