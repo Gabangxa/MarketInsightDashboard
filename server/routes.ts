@@ -6,6 +6,7 @@ import { wsManager, type MarketData, type OrderBookData } from "./websocket-mana
 import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema, insertUserSchema } from "@shared/schema";
 import { hash } from "bcryptjs";
 import passport from "passport";
+import { sessionParser } from "./index";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -86,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   
-  // WebSocket authentication: We'll handle the upgrade event manually
+  // WebSocket authentication: Handle upgrade event manually
   // to properly parse the session using the configured middleware
   const wss = new WebSocketServer({ noServer: true });
 
@@ -96,19 +97,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    // Use express session parser and passport to authenticate
-    (app as any).handle(request, {} as any, () => {
-      const req = request as any;
-      
-      // Check if user is authenticated after session parsing
-      if (req.isAuthenticated && req.isAuthenticated()) {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          wss.emit("connection", ws, request);
+    const req = request as any;
+    const res = {
+      setHeader: () => {},
+      getHeader: () => {},
+      end: () => {},
+      writeHead: () => {},
+    } as any;
+
+    // Parse session
+    sessionParser(req, res, () => {
+      // Initialize passport
+      passport.initialize()(req, res, () => {
+        passport.session()(req, res, () => {
+          // Check if user is authenticated
+          if (req.isAuthenticated && req.isAuthenticated()) {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+              wss.emit("connection", ws, request);
+            });
+          } else {
+            socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+            socket.destroy();
+          }
         });
-      } else {
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-        socket.destroy();
-      }
+      });
     });
   });
 
