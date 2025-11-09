@@ -1,30 +1,45 @@
-import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
+
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
-  const { login, signup } = useAuth();
+  const { login } = useAuth();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
 
-  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ username: "", password: "", confirmPassword: "" });
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(loginForm.username, loginForm.password);
+      await login(data.username, data.password);
       toast({
         title: "Welcome back!",
-        description: "Successfully logged in",
+        description: "Successfully logged in to Market Insight Dashboard",
       });
     } catch (error: any) {
       toast({
@@ -32,39 +47,118 @@ export default function Login() {
         description: error.message || "Invalid username or password",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (signupForm.password !== signupForm.confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (isSignupMode) {
+    return <SignupPage onBackToLogin={() => setIsSignupMode(false)} />;
+  }
 
-    if (signupForm.password.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
-      return;
-    }
+  return (
+    <div className="flex items-center justify-center h-screen bg-background">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle data-testid="text-login-title">Log In</CardTitle>
+          <CardDescription data-testid="text-login-description">
+            Access your Market Insight Dashboard
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                data-testid="input-username"
+                placeholder="Enter your username"
+                autoComplete="username"
+                {...register("username")}
+              />
+              {errors.username && (
+                <p className="text-sm text-destructive" data-testid="error-username">
+                  {errors.username.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                data-testid="input-password"
+                type="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                {...register("password")}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive" data-testid="error-password">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isSubmitting}
+              data-testid="button-login"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Log In
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <button
+              type="button"
+              onClick={() => setIsSignupMode(true)}
+              className="text-primary hover-elevate underline-offset-4 hover:underline"
+              data-testid="link-signup"
+            >
+              Sign up
+            </button>
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
 
-    setIsLoading(true);
-    
+const signupSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
+
+function SignupPage({ onBackToLogin }: { onBackToLogin: () => void }) {
+  const { signup } = useAuth();
+  const { toast } = useToast();
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const onSubmit = async (data: SignupFormData) => {
     try {
-      await signup(signupForm.username, signupForm.password);
+      await signup(data.username, data.password);
       toast({
         title: "Account created!",
-        description: "Welcome to the Crypto Trading Dashboard",
+        description: "Welcome to Market Insight Dashboard",
       });
     } catch (error: any) {
       toast({
@@ -72,117 +166,91 @@ export default function Login() {
         description: error.message || "Username might already exist",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex items-center justify-center h-screen bg-background">
+      <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Crypto Trading Dashboard</CardTitle>
-          <CardDescription>Sign in to access your personalized dashboard</CardDescription>
+          <CardTitle data-testid="text-signup-title">Sign Up</CardTitle>
+          <CardDescription data-testid="text-signup-description">
+            Create your Market Insight Dashboard account
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-              <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-username">Username</Label>
-                  <Input
-                    id="login-username"
-                    data-testid="input-login-username"
-                    placeholder="Enter your username"
-                    value={loginForm.username}
-                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                    required
-                    autoComplete="username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    data-testid="input-login-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    required
-                    autoComplete="current-password"
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isLoading}
-                  data-testid="button-login"
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Login
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-username">Username</Label>
-                  <Input
-                    id="signup-username"
-                    data-testid="input-signup-username"
-                    placeholder="Choose a username"
-                    value={signupForm.username}
-                    onChange={(e) => setSignupForm({ ...signupForm, username: e.target.value })}
-                    required
-                    autoComplete="username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    data-testid="input-signup-password"
-                    type="password"
-                    placeholder="Choose a password (min 6 characters)"
-                    value={signupForm.password}
-                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                    required
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                  <Input
-                    id="signup-confirm-password"
-                    data-testid="input-signup-confirm-password"
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={signupForm.confirmPassword}
-                    onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
-                    required
-                    autoComplete="new-password"
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isLoading}
-                  data-testid="button-signup"
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="signup-username">Username</Label>
+              <Input
+                id="signup-username"
+                data-testid="input-signup-username"
+                placeholder="Choose a username"
+                autoComplete="username"
+                {...register("username")}
+              />
+              {errors.username && (
+                <p className="text-sm text-destructive" data-testid="error-signup-username">
+                  {errors.username.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password">Password</Label>
+              <Input
+                id="signup-password"
+                data-testid="input-signup-password"
+                type="password"
+                placeholder="Choose a password (min 6 characters)"
+                autoComplete="new-password"
+                {...register("password")}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive" data-testid="error-signup-password">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+              <Input
+                id="signup-confirm-password"
+                data-testid="input-signup-confirm-password"
+                type="password"
+                placeholder="Confirm your password"
+                autoComplete="new-password"
+                {...register("confirmPassword")}
+              />
+              {errors.confirmPassword && (
+                <p className="text-sm text-destructive" data-testid="error-signup-confirm-password">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isSubmitting}
+              data-testid="button-signup"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Account
+            </Button>
+          </form>
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={onBackToLogin}
+              className="text-primary hover-elevate underline-offset-4 hover:underline"
+              data-testid="link-login"
+            >
+              Log in
+            </button>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );
