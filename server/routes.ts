@@ -1,11 +1,84 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { wsManager, type MarketData, type OrderBookData } from "./websocket-manager";
-import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema } from "@shared/schema";
+import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema, insertUserSchema } from "@shared/schema";
+import { hash } from "bcryptjs";
+import passport from "passport";
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: "Unauthorized" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Authentication routes
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { username, password } = insertUserSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      const hashedPassword = await hash(password, 10);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+      });
+
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to login after signup" });
+        }
+        res.json({ id: user.id, username: user.username });
+      });
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(400).json({ error: "Invalid signup data" });
+    }
+  });
+
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ error: "Authentication failed" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ error: "Login failed" });
+        }
+        res.json({ id: user.id, username: user.username });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      const user = req.user as any;
+      res.json({ id: user.id, username: user.username });
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
@@ -89,21 +162,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Watchlist endpoints
-  app.get("/api/watchlist", async (req, res) => {
+  app.get("/api/watchlist", requireAuth, async (req, res) => {
     try {
-      const tokens = await storage.getWatchlistTokens("default-user");
+      const userId = (req.user as any).id;
+      const tokens = await storage.getWatchlistTokens(userId);
       res.json(tokens);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch watchlist" });
     }
   });
 
-  app.post("/api/watchlist", async (req, res) => {
+  app.post("/api/watchlist", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
       const validated = insertWatchlistTokenSchema.parse(req.body);
       const token = await storage.createWatchlistToken({
         ...validated,
-        userId: "default-user",
+        userId,
       });
       res.json(token);
     } catch (error) {
@@ -111,7 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/watchlist/:id", async (req, res) => {
+  app.delete("/api/watchlist/:id", requireAuth, async (req, res) => {
     try {
       await storage.deleteWatchlistToken(req.params.id);
       res.json({ success: true });
@@ -121,22 +196,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alert endpoints
-  app.get("/api/alerts", async (req, res) => {
+  app.get("/api/alerts", requireAuth, async (req, res) => {
     try {
-      const alerts = await storage.getAlerts("default-user");
+      const userId = (req.user as any).id;
+      const alerts = await storage.getAlerts(userId);
       res.json(alerts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch alerts" });
     }
   });
 
-  app.post("/api/alerts", async (req, res) => {
+  app.post("/api/alerts", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
       console.log("POST /api/alerts body:", JSON.stringify(req.body, null, 2));
       const validated = insertAlertSchema.parse(req.body);
       const alert = await storage.createAlert({
         ...validated,
-        userId: "default-user",
+        userId,
       });
       res.json(alert);
     } catch (error) {
@@ -145,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/alerts/:id", async (req, res) => {
+  app.patch("/api/alerts/:id", requireAuth, async (req, res) => {
     try {
       // Convert lastTriggered string to Date if present
       const updates = { ...req.body };
@@ -161,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/alerts/:id", async (req, res) => {
+  app.delete("/api/alerts/:id", requireAuth, async (req, res) => {
     try {
       await storage.deleteAlert(req.params.id);
       res.json({ success: true });
@@ -171,17 +248,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Webhook messages endpoints
-  app.get("/api/webhooks", async (req, res) => {
+  app.get("/api/webhooks", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
-      const messages = await storage.getWebhookMessages("default-user", limit);
+      const messages = await storage.getWebhookMessages(userId, limit);
       res.json(messages);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch webhooks" });
     }
   });
 
-  app.patch("/api/webhooks/:id", async (req, res) => {
+  app.patch("/api/webhooks/:id", requireAuth, async (req, res) => {
     try {
       const updated = await storage.updateWebhookMessage(req.params.id, req.body);
       res.json(updated);
@@ -191,19 +269,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard config endpoints
-  app.get("/api/dashboard-config", async (req, res) => {
+  app.get("/api/dashboard-config", requireAuth, async (req, res) => {
     try {
-      const config = await storage.getDashboardConfig("default-user");
+      const userId = (req.user as any).id;
+      const config = await storage.getDashboardConfig(userId);
       res.json(config);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard config" });
     }
   });
 
-  app.post("/api/dashboard-config", async (req, res) => {
+  app.post("/api/dashboard-config", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
       const config = await storage.saveDashboardConfig({
-        userId: "default-user",
+        userId,
         layout: req.body.layout,
       });
       res.json(config);
