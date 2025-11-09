@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { registerRoutes } from "./routes";
@@ -11,7 +12,24 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const PgSession = connectPgSimple(session);
+
+const sessionStore = process.env.DATABASE_URL
+  ? new PgSession({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+      tableName: "session",
+    })
+  : undefined;
+
+if (sessionStore) {
+  log("Using PostgreSQL session store");
+} else {
+  log("WARNING: Using in-memory session store (sessions will not persist across server restarts)");
+}
+
 export const sessionParser = session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || "crypto-dashboard-secret-key-change-in-production",
   resave: false,
   saveUninitialized: false,
