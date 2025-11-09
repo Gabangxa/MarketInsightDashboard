@@ -15,17 +15,19 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTabSystem } from "@/hooks/useTabSystem";
 import { useToast } from "@/hooks/use-toast";
 import { createAvailableWidgets } from "@/config/widgets";
+import { SymbolProvider, useSymbol } from "@/contexts/SymbolContext";
 import type { WatchlistToken, Alert, WebhookMessage } from "@shared/schema";
 
-export default function Dashboard() {
+function DashboardContent() {
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState<AlertWidgetType | null>(null);
   const [isMarketConfigOpen, setIsMarketConfigOpen] = useState(false);
   const [isOrderBookConfigOpen, setIsOrderBookConfigOpen] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
   const [orderBookViewMode, setOrderBookViewMode] = useState<"both" | "bids" | "asks">("both");
   // Note: Binance is currently geo-blocked, using Bybit only
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
+
+  const { selectedSymbol, setSelectedSymbol } = useSymbol();
 
   const { toast } = useToast();
 
@@ -123,30 +125,6 @@ export default function Dashboard() {
     };
   }, [selectedSymbol, selectedExchanges, subscribe, unsubscribe]);
 
-  // Aggregate market data for selected symbol
-  const aggregatedMarketData = useMemo(() => {
-    const symbolData = marketData.get(selectedSymbol);
-    if (!symbolData) return null;
-    return aggregateMarketData(selectedSymbol, symbolData);
-  }, [selectedSymbol, marketData]);
-
-  // Aggregate order book for selected symbol
-  const aggregatedOrderBook = useMemo(() => {
-    const symbolOrderBooks = orderBooks.get(selectedSymbol);
-    if (!symbolOrderBooks) return null;
-    return aggregateOrderBook(selectedSymbol, symbolOrderBooks);
-  }, [selectedSymbol, orderBooks]);
-
-
-  // Handler for selecting a token from watchlist
-  const handleSelectToken = (symbol: string) => {
-    setSelectedSymbol(symbol);
-    // Update selected exchanges to match the token's configured exchanges
-    const token = watchlistTokens.find(t => t.symbol === symbol);
-    if (token && token.exchanges) {
-      setSelectedExchanges(token.exchanges as string[]);
-    }
-  };
 
   // Stable exchanges array for Technical Indicators Widget
   const technicalIndicatorExchanges = useMemo(() => ["bybit", "okx"], []);
@@ -154,15 +132,12 @@ export default function Dashboard() {
   // Define all available widgets for the tab system
   const availableWidgets = useMemo(() => createAvailableWidgets({
     marketData,
-    selectedSymbol,
+    orderBooks,
     selectedExchanges,
-    onSelectToken: handleSelectToken,
-    aggregatedMarketData,
     onMarketConfigure: () => {
       console.log("Opening market config modal");
       setIsMarketConfigOpen(true);
     },
-    aggregatedOrderBook,
     orderBookViewMode,
     onOrderBookConfigure: () => {
       console.log("Opening order book config modal");
@@ -185,9 +160,8 @@ export default function Dashboard() {
     },
     technicalIndicatorExchanges,
   }), [
-    marketData, selectedSymbol, selectedExchanges, aggregatedMarketData, 
-    aggregatedOrderBook, orderBookViewMode, webhookMessages, 
-    toggleBookmarkMutation, handleSelectToken, technicalIndicatorExchanges
+    marketData, orderBooks, selectedExchanges, orderBookViewMode, 
+    webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges
   ]);
 
   // Initialize tab system
@@ -365,5 +339,13 @@ export default function Dashboard() {
         onExchangesChange={setSelectedExchanges}
       />
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <SymbolProvider>
+      <DashboardContent />
+    </SymbolProvider>
   );
 }

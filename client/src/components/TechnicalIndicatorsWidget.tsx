@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { useSymbol } from '@/contexts/SymbolContext';
 import {
   calculateAllIndicators,
   type IndicatorResult,
@@ -42,7 +43,6 @@ import {
 import { fetchHistoricalCandles, type Candle, MINIMUM_CANDLES_FOR_INDICATORS } from '@/lib/fetchHistoricalCandles';
 
 interface TechnicalIndicatorsWidgetProps {
-  symbol: string;
   exchanges?: string[];
   onConfigure?: () => void;
   className?: string;
@@ -160,11 +160,11 @@ function getIndicatorDescription(indicator: IndicatorResult): string {
 }
 
 export default function TechnicalIndicatorsWidget({ 
-  symbol,
   exchanges = ["bybit"],
   onConfigure,
   className 
 }: TechnicalIndicatorsWidgetProps) {
+  const { selectedSymbol: symbol } = useSymbol();
   const [indicatorConfigs, setIndicatorConfigs] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

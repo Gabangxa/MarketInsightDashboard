@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { aggregateMarketData } from "@/lib/marketAggregation";
+import { useSymbol } from "@/contexts/SymbolContext";
 import type { WatchlistToken as WatchlistTokenType } from "@shared/schema";
 
 export interface WatchlistToken {
@@ -22,18 +23,15 @@ interface WatchlistWidgetProps {
   marketData: Map<string, Map<string, any>>;
   selectedExchanges: string[];
   maxTokens?: number;
-  onSelectToken?: (symbol: string) => void;
-  selectedSymbol?: string;
 }
 
 export default function WatchlistWidget({
   marketData,
   selectedExchanges,
   maxTokens = 10,
-  onSelectToken,
-  selectedSymbol
 }: WatchlistWidgetProps) {
   const [newSymbol, setNewSymbol] = useState("");
+  const { selectedSymbol, setSelectedSymbol } = useSymbol();
 
   // Fetch watchlist
   const { data: watchlistTokens = [], isLoading } = useQuery<WatchlistTokenType[]>({
@@ -183,7 +181,7 @@ export default function WatchlistWidget({
                 "grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-2 py-2 px-2 rounded-lg cursor-pointer hover-elevate transition-colors group items-center",
                 selectedSymbol === token.symbol && "bg-primary/10 border border-primary/20"
               )}
-              onClick={() => onSelectToken?.(token.symbol)}
+              onClick={() => setSelectedSymbol(token.symbol)}
               data-testid={`watchlist-token-${token.symbol}`}
             >
               <div className="flex items-center gap-1.5">

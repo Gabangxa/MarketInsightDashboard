@@ -9,6 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSymbol } from "@/contexts/SymbolContext";
+import { aggregateOrderBook } from "@/lib/marketAggregation";
 
 export interface OrderBookEntry {
   price: number;
@@ -26,7 +28,7 @@ export interface OrderBookData {
 }
 
 interface OrderBookWidgetProps {
-  data: OrderBookData;
+  orderBooks: Map<string, Map<string, any>>;
   onConfigure?: () => void;
   viewMode?: "both" | "bids" | "asks";
 }
@@ -149,9 +151,39 @@ function createDepthBuckets(
   }
 }
 
-export default function OrderBookWidget({ data, onConfigure, viewMode = "both" }: OrderBookWidgetProps) {
+export default function OrderBookWidget({ orderBooks, onConfigure, viewMode = "both" }: OrderBookWidgetProps) {
+  const { selectedSymbol } = useSymbol();
   const [percentIncrement, setPercentIncrement] = useState("0.1");
   const incrementValue = parseFloat(percentIncrement);
+
+  // Aggregate order book for selected symbol
+  const data = useMemo(() => {
+    const symbolOrderBooks = orderBooks.get(selectedSymbol);
+    if (!symbolOrderBooks) {
+      return {
+        symbol: selectedSymbol,
+        bids: [],
+        asks: [],
+        spread: 0,
+        spreadPercent: 0,
+        exchanges: [],
+      };
+    }
+    
+    const aggregated = aggregateOrderBook(selectedSymbol, symbolOrderBooks);
+    if (!aggregated) {
+      return {
+        symbol: selectedSymbol,
+        bids: [],
+        asks: [],
+        spread: 0,
+        spreadPercent: 0,
+        exchanges: [],
+      };
+    }
+    
+    return aggregated;
+  }, [selectedSymbol, orderBooks]);
 
   // Simplified and more reliable order book processing
   const { displayAsks, displayBids, maxTotal, midPrice, spread, spreadPercent } = useMemo(() => {

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSymbol } from "@/contexts/SymbolContext";
+import { aggregateMarketData } from "@/lib/marketAggregation";
 
 export interface MarketData {
   symbol: string;
@@ -16,11 +18,45 @@ export interface MarketData {
 }
 
 interface MarketDataWidgetProps {
-  data: MarketData;
+  marketData: Map<string, Map<string, any>>;
   onConfigure?: () => void;
 }
 
-export default function MarketDataWidget({ data, onConfigure }: MarketDataWidgetProps) {
+export default function MarketDataWidget({ marketData, onConfigure }: MarketDataWidgetProps) {
+  const { selectedSymbol } = useSymbol();
+  
+  // Aggregate market data for selected symbol
+  const data = useMemo(() => {
+    const symbolData = marketData.get(selectedSymbol);
+    if (!symbolData) {
+      return {
+        symbol: selectedSymbol,
+        price: 0,
+        priceChange: 0,
+        priceChangePercent: 0,
+        volume24hUSDT: 0,
+        allTimeHigh: 0,
+        allTimeLow: 0,
+        exchanges: [],
+      };
+    }
+    
+    const aggregated = aggregateMarketData(selectedSymbol, symbolData);
+    if (!aggregated) {
+      return {
+        symbol: selectedSymbol,
+        price: 0,
+        priceChange: 0,
+        priceChangePercent: 0,
+        volume24hUSDT: 0,
+        allTimeHigh: 0,
+        allTimeLow: 0,
+        exchanges: [],
+      };
+    }
+    
+    return aggregated;
+  }, [selectedSymbol, marketData]);
   const [flashColor, setFlashColor] = useState<"positive" | "negative" | null>(null);
   
   const isPositive = data.priceChange >= 0;

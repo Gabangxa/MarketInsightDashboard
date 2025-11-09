@@ -9,27 +9,13 @@ import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
 
 interface WidgetFactoryParams {
-  // Watchlist widget
+  // Real-time data
   marketData: Map<string, Map<string, any>>;
-  selectedSymbol: string;
+  orderBooks: Map<string, Map<string, any>>;
   selectedExchanges: string[];
-  onSelectToken: (symbol: string) => void;
   
-  // Market data widget
-  aggregatedMarketData: {
-    symbol: string;
-    price: number;
-    priceChange: number;
-    priceChangePercent: number;
-    volume24hUSDT: number;
-    allTimeHigh: number;
-    allTimeLow: number;
-    exchanges: string[];
-  } | null;
+  // Widget configurations
   onMarketConfigure: () => void;
-  
-  // Order book widget
-  aggregatedOrderBook: AggregatedOrderBook | null;
   orderBookViewMode: "both" | "bids" | "asks";
   onOrderBookConfigure: () => void;
   
@@ -57,8 +43,6 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
         <WatchlistWidget
           marketData={params.marketData}
           selectedExchanges={params.selectedExchanges}
-          selectedSymbol={params.selectedSymbol}
-          onSelectToken={params.onSelectToken}
         />
       )
     },
@@ -70,16 +54,7 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       defaultSize: { w: 4, h: 3, minW: 3, minH: 2 },
       component: (
         <MarketDataWidget
-          data={params.aggregatedMarketData || {
-            symbol: params.selectedSymbol,
-            price: 0,
-            priceChange: 0,
-            priceChangePercent: 0,
-            volume24hUSDT: 0,
-            allTimeHigh: 0,
-            allTimeLow: 0,
-            exchanges: [],
-          }}
+          marketData={params.marketData}
           onConfigure={params.onMarketConfigure}
         />
       )
@@ -92,14 +67,7 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },
       component: (
         <OrderBookWidget
-          data={params.aggregatedOrderBook || {
-            symbol: params.selectedSymbol,
-            bids: [] as OrderBookEntry[],
-            asks: [] as OrderBookEntry[],
-            spread: 0,
-            spreadPercent: 0,
-            exchanges: [],
-          }}
+          orderBooks={params.orderBooks}
           viewMode={params.orderBookViewMode}
           onConfigure={params.onOrderBookConfigure}
         />
@@ -142,7 +110,6 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
       component: (
         <TechnicalIndicatorsWidget
-          symbol={params.selectedSymbol}
           exchanges={params.technicalIndicatorExchanges}
         />
       )
