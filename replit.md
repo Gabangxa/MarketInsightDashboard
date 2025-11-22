@@ -1,253 +1,59 @@
 # Real-Time Market Dashboard
 
 ## Overview
-
-A modular, real-time cryptocurrency market monitoring dashboard that aggregates data from multiple exchanges (Binance, Bybit, OKX) via WebSocket connections. The application provides live price tracking, order book visualization, customizable alerts, webhook message monitoring, technical indicators, and a drag-and-drop widget-based interface with persistent user configurations. Includes full user authentication system.
+A modular, real-time cryptocurrency market monitoring dashboard that aggregates data from multiple exchanges (Bybit, OKX) via WebSocket connections. The application provides live price tracking, order book visualization, customizable alerts, webhook message monitoring, technical indicators, and a drag-and-drop widget-based interface with persistent user configurations. It includes a user authentication system. The business vision is to provide traders with a comprehensive, customizable, and reliable tool for real-time market analysis, enhancing decision-making and capitalizing on market opportunities.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
 ### Frontend Architecture
+The frontend is built with React 18 and TypeScript, using Vite as a build tool, Wouter for routing, and TanStack Query for server state management. Tailwind CSS with shadcn/ui provides a dark mode-first design system inspired by professional trading terminals, using a custom color palette for data density and the Inter font for legibility.
 
-**Framework Stack:**
-- React 18 with TypeScript
-- Vite as build tool and dev server
-- Wouter for client-side routing
-- TanStack Query (React Query) for server state management
-- Tailwind CSS with shadcn/ui component library
+The dashboard features a drag-and-drop widget system using `react-grid-layout`, supporting eight core widget types: Market Data, Order Book, Watchlist, Alerts, Webhook, Chart (TradingView lightweight-charts), Correlation Matrix, and Market Sentiment. The layout is responsive, with persistent user configurations stored in the database. A unified 12-column grid system is used across all breakpoints for consistent alignment, with vertical compaction and collision prevention.
 
-**Design System:**
-- Dark mode-first interface inspired by professional trading terminals (TradingView, Bloomberg)
-- Custom color palette optimized for data density and real-time updates
-- Semantic colors for market data (green for positive/buy, red for negative/sell, purple for bookmarks)
-- Inter font for primary text, optimized for number legibility
+Real-time data flows via WebSocket connections to the backend, pushing market data and order book updates. Data aggregation logic combines multiple exchange feeds. State management utilizes TanStack Query for API data, local state for UI, and custom hooks for WebSocket data and alert monitoring.
 
-**Widget System:**
-- Drag-and-drop dashboard layout using react-grid-layout
-- Six core widget types:
-  - Market Data Widget: Real-time price, 24h change, volume display
-  - Order Book Widget: Aggregated bid/ask depth visualization
-  - Watchlist Widget: Token tracking with add/remove functionality
-  - Alerts Widget: Price and keyword alert configuration
-  - Webhook Widget: External message monitoring with filtering
-  - Chart Widget: TradingView lightweight-charts integration with historical + real-time data (Oct 21, 2025)
-- Responsive grid layout with persistent positioning via database storage
-- **Grid System Refactored (Oct 25, 2025):**
-  - Unified 12-column grid across ALL breakpoints (lg, md, sm, xs, xxs) for consistent alignment
-  - Vertical compaction (`compactType="vertical"`) allows horizontal widget placement while preventing overlaps
-  - Collision prevention enabled (`preventCollision={true}`) to avoid widget overlaps during drag/resize
-  - Layout state memoized - user customizations persist, no auto-regeneration on widget changes
-  - Drag handles on widget title headers (`.widget-drag-handle` class)
-  - 8 resize handles (all corners and edges) for precise dimension control
-  - Simplified default layout logic - basic grid placement without complex section allocation
-  - Breakpoints: lg (1200px+), md (996px+), sm (768px+), xs (480px+), xxs (0px+)
-- **Default Layout:**
-  - Desktop (lg/md): Widgets flow in up to 3 columns (4 cols max width per widget)
-  - Tablets (sm): Widgets flow in up to 2 columns (6 cols max width per widget)
-  - Mobile (xs/xxs): Single column, full-width widgets
-
-**Real-Time Data Flow:**
-- WebSocket connection to backend (`/ws` endpoint)
-- Client subscribes to specific symbols and exchanges
-- Market data and order book updates pushed to client
-- Data aggregation logic combines multiple exchange feeds
-- Visual flash feedback on price changes (green/red backgrounds)
-
-**State Management Pattern:**
-- TanStack Query for API data fetching and caching
-- Local state for UI interactions (modals, filters)
-- WebSocket state managed via custom `useMarketWebSocket` hook
-- Alert monitoring via `useAlertMonitor` hook with toast notifications
-
-**Alert System:**
-- **Configuration UI:** Centered modal dialog (converted from side panel on Oct 19, 2025)
-  - Performance optimized with conditional rendering to prevent re-renders when closed
-  - Clear visibility with shadcn Dialog component
-  - Editable alerts: Click Edit button (Pencil icon) to modify existing alerts (implemented Oct 19, 2025)
-- **Alert Types:**
-  - Price Alerts: Monitor symbol price against threshold (>, <, >=, <=)
-  - Keyword Alerts: Scan webhook messages for specific keywords
-- **Trigger Limits:** (implemented Oct 19, 2025)
-  - `maxTriggers` field: Optional limit on how many times an alert can trigger
-  - `triggerCount` field: Tracks number of times alert has triggered
-  - null/empty maxTriggers = unlimited triggers
-  - Alert stops triggering when triggerCount >= maxTriggers
-  - UI displays "Triggers: X / Y" or "Triggers: X (unlimited)"
-- **Alert Monitoring:**
-  - `useAlertMonitor` hook checks alerts on every market data update
-  - 5-second cooldown period prevents rapid re-triggering (implemented Oct 20, 2025)
-  - Skips alerts that have reached their trigger limit
-  - Increments triggerCount on each trigger
-  - Marks alert as triggered=true only when limit is reached
-  - **Race condition fix** (Oct 20, 2025): 
-    - Persistent Set tracks alerts that reached their limit, surviving cache invalidations
-    - Immediately updates in-memory alert object to `triggered=true` when limit reached
-    - Cleanup mechanism removes deleted/reset alerts from tracking Sets
-    - Prevents notifications from showing after trigger limit is reached
-  - Custom styled toast notifications when alerts trigger (implemented Oct 19, 2025)
-  - Alert status persisted (triggered, lastTriggered, triggerCount)
-  - Timestamp conversion fix: Converts Date strings back to Date objects before database save (Oct 20, 2025)
-- **Toast Notification Styling:**
-  - Custom React components (`PriceAlertToast`, `KeywordAlertToast`)
-  - Gradient backgrounds: red/orange for price alerts, blue/purple for keyword alerts
-  - Full border styling: `border border-{color}/40` complies with design guidelines
-  - Rounded corners (`rounded-md`) with proper iconography (TrendingUp/Down, Bell, AlertTriangle)
-  - Clear information hierarchy: white text for important data, gray for secondary info
-  - 8-second duration, top-right positioning via react-hot-toast
-- **Important Limitation:** Price alerts only work for symbols with active WebSocket connections
-  - Alerts require the symbol to be in the watchlist or actively monitored
-  - Example: BTCUSDT alert works (default symbol), but ETHUSDT alert won't work unless ETHUSDT is added to watchlist first
-  - This is by design to avoid unnecessary WebSocket connections
-
-**Chart Widget & Historical Data (implemented Oct 21, 2025):**
-- **Chart Library:** TradingView's lightweight-charts v4+ with official attribution watermark
-- **Chart Types:** Candlestick and Line charts with smooth type transitions
-- **Timeframes:** 1 minute, 5 minutes, 15 minutes, 1 hour, 4 hours, 1 day
-- **Historical Data Fetching:**
-  - On-demand REST API calls to Binance, Bybit, and OKX exchanges
-  - `fetchHistoricalCandles()` utility aggregates OHLC data from multiple exchanges
-  - Period selector: 1 hour, 4 hours, 24 hours, 1 week, 1 month
-  - Dynamic candle count calculation based on period and timeframe
-  - Historical data loads on component mount and configuration changes
-- **Real-Time Integration:**
-  - `CandleAggregator` class converts WebSocket tick data to OHLC candles across multiple timeframes
-  - Historical candles merge with real-time updates via sorted Map<timestamp, Candle> instances
-  - **Critical Map mutation fix (Oct 21):** Clone and sort Map instances before setState to trigger React updates
-  - Real-time candles overlay on historical data without overriding past price action
-- **Configuration Modal:**
-  - `ChartConfigModal` allows changing symbol, timeframe, chart type, and historical period
-  - Centered shadcn Dialog component with symbol/timeframe/period/type selectors
-  - Triggers historical data refetch when configuration changes
-- **Data Flow:**
-  1. Dashboard mounts → `fetchHistoricalCandles(symbol, timeframe, period, exchanges)`
-  2. Exchange REST APIs → Returns Map<timestamp, Candle> → Sort by timestamp → setState
-  3. Real-time WebSocket ticks → CandleAggregator → Merge with historical (sorted)
-  4. ChartWidget receives combined dataset → Renders via lightweight-charts API
+The alert system allows configuration of price and keyword alerts with trigger limits and a 5-second cooldown. Triggered alerts are displayed via custom-styled toast notifications. The Chart Widget integrates TradingView's lightweight-charts, supporting candlestick and line charts across various timeframes, fetching historical data from exchange REST APIs and overlaying real-time updates. The Correlation Matrix Widget calculates Pearson correlation coefficients between crypto pairs using aligned historical data and visualizes them in a color-coded heatmap. The Market Sentiment Widget displays the Fear & Greed Index from Alternative.me, with a visual gauge and classification badge.
 
 ### Backend Architecture
+The backend is an Express.js server on Node.js with TypeScript, supporting HTTP and WebSocket connections. A custom `ExchangeWebSocketManager` handles multiple exchange connections, automatic reconnection with exponential backoff, and stateful order book reconstruction, emitting complete 50-level order books to clients.
 
-**Server Framework:**
-- Express.js on Node.js
-- TypeScript for type safety
-- HTTP server with WebSocket upgrade support via `ws` library
+RESTful endpoints manage CRUD operations for watchlist, alerts, webhooks, and dashboard configurations. A WebSocket endpoint `/ws` handles real-time data streams. Data storage uses PostgreSQL via Drizzle ORM with the Neon serverless driver, falling back to in-memory storage if unavailable. Data models include Users, WatchlistTokens, Alerts, WebhookMessages, and DashboardConfig, all persisting across sessions.
 
-**WebSocket Management:**
-- Custom `ExchangeWebSocketManager` class handling multiple exchange connections
-- Separate WebSocket connections per symbol per exchange
-- Automatic reconnection logic with exponential backoff
-- Ping/pong heartbeat for Bybit connections
-- Bidirectional communication: client subscribes/unsubscribes to symbols
-- **Stateful Order Book Reconstruction:**
-  - Maintains local Map-based order book state per symbol
-  - Snapshot handling: Initializes full order book from exchange snapshot
-  - Delta handling: Applies incremental updates (size>0 = add/update, size=0 = delete)
-  - Emits complete 50-level order books to clients on every update
-  - State cleared on disconnect/reconnect for data integrity
-
-**API Structure:**
-- RESTful endpoints for CRUD operations:
-  - `/api/watchlist` - Watchlist token management
-  - `/api/alerts` - Alert configuration
-  - `/api/webhooks` - Webhook message retrieval
-  - `/api/dashboard-config` - Dashboard layout persistence
-- WebSocket endpoint `/ws` for real-time data streams
-
-**Data Storage Pattern:**
-- Abstract `IStorage` interface for flexibility
-- PostgreSQL implementation (`PostgresStorage`) using Drizzle ORM with Neon serverless driver
-- Falls back to in-memory storage (`MemStorage`) if DATABASE_URL not available
-- Data models: Users, WatchlistTokens, Alerts, WebhookMessages, DashboardConfig
-- All data persists across sessions via PostgreSQL database
-
-**Exchange Integration:**
-- Direct WebSocket connections to public APIs:
-  - **Binance**: ❌ Blocked (451 geo-restriction from Replit servers) - `wss://stream.binance.com:9443`
-  - **Bybit**: ✅ Working - `wss://stream.bybit.com/v5/public/spot`
-    - Ticker topic: `tickers.BTCUSDT`
-    - Order book topic: `orderbook.50.BTCUSDT`
-    - Requires ping/pong heartbeat every 20 seconds
-  - **OKX**: ⏳ Configured - `wss://ws.okx.com:8443/ws/v5/public`
-- Normalized data format across exchanges
-- Real-time ticker data (price, volume, 24h change) and order book depth (bids/asks)
-- Automatic reconnection with 5-second delay on disconnect
-
-**Current Status (as of Oct 12, 2025):**
-- Real-time BTC price from Bybit: ~$113,650 (accurate live data)
-- Data flow: Exchange WebSocket → Backend Manager → Client WebSocket → React State → UI Widgets
-- **Order book streaming successfully with complete 50-level depth**
-  - Stateful delta reconstruction ensures all entries have valid size data
-  - Proper handling of Bybit snapshot and delta update protocol
-- Binance temporarily disabled due to geo-blocking (error 451)
-- Bybit order book verified working with real-time delta updates
+Exchange integration involves direct WebSocket connections to Bybit and OKX, with normalized data formats for ticker data and order book depth. Binance is currently geo-restricted.
 
 ### Data Storage Solutions
-
-**Database Schema (PostgreSQL + Drizzle ORM):**
-- `users` - User authentication (username, password)
-- `watchlist_tokens` - User-specific token watchlists with exchange selections
-- `alerts` - Price and keyword alerts with trigger conditions
-- `webhook_messages` - External messages with bookmark functionality
-- `dashboard_config` - Persistent widget layout configurations (JSONB storage)
-
-**Schema Design Patterns:**
-- UUID primary keys with `gen_random_uuid()`
-- JSONB columns for flexible data (exchange arrays, layout config, webhook payload)
-- Timestamps for temporal tracking
-- Boolean flags for states (triggered, bookmarked)
-- Decimal precision for financial data (20,8)
-
-**Current Implementation (Updated Oct 19, 2025):**
-- ✅ PostgreSQL database active and persisting all data
-- Drizzle ORM with Neon serverless driver for database operations
-- Database configured via `DATABASE_URL` environment variable
-- Schema pushed to database via `npm run db:push`
-- All watchlist, alerts, webhook messages, and dashboard layouts persist across sessions
+The database schema, implemented with PostgreSQL and Drizzle ORM, includes tables for `users`, `watchlist_tokens`, `alerts`, `webhook_messages`, and `dashboard_config`. UUID primary keys, JSONB columns for flexible data, and timestamps are utilized. Decimal precision is set for financial data.
 
 ### Authentication and Authorization
+The system defines a user schema with username/password fields and uses a "default-user" ID for current operations. The intended pattern is session-based authentication with user-scoped data access via `userId` foreign keys, ensuring all widgets and configurations are tied to an authenticated user.
 
-**Current State:**
-- User schema defined with username/password fields
-- Default user ID (`"default-user"`) used for all operations
-- No active authentication middleware implemented
-- Session management prepared via `connect-pg-simple` package
-
-**Intended Pattern:**
-- Session-based authentication expected
-- User-scoped data access via `userId` foreign keys
-- All widgets and configurations tied to authenticated user
-
-### External Dependencies
+## External Dependencies
 
 **Exchange APIs:**
-- Binance WebSocket API (public streams)
-- Bybit WebSocket API (public streams, requires ping/pong)
+- Bybit WebSocket API (public streams)
 - OKX WebSocket API (public streams)
-- No API keys required for public market data
+- Alternative.me Crypto Fear & Greed Index API
 
-**Development Tools:**
-- Replit-specific plugins for development environment
-- Runtime error overlay for debugging
-- Cartographer for code navigation
-- Development banner
-
-**UI Component Library:**
-- Radix UI primitives (30+ component packages)
-- shadcn/ui configuration and theming
-- react-grid-layout for dashboard customization
-- react-hot-toast for notifications
-- date-fns for timestamp formatting
+**UI Component Libraries:**
+- Radix UI primitives
+- shadcn/ui
+- react-grid-layout
+- react-hot-toast
+- TradingView's lightweight-charts
+- date-fns
 
 **Database & ORM:**
-- Drizzle ORM for type-safe database queries
-- Drizzle Kit for schema migrations
-- @neondatabase/serverless for PostgreSQL connection
-- Zod for runtime schema validation (drizzle-zod integration)
+- Drizzle ORM
+- Drizzle Kit
+- @neondatabase/serverless (for PostgreSQL)
+- Zod
 
 **Build & Bundling:**
-- Vite for frontend bundling
-- esbuild for server-side bundling in production
-- PostCSS with Tailwind and Autoprefixer
-- TypeScript compilation with path aliases
+- Vite
+- esbuild
+- PostCSS
+- Tailwind CSS
+- Autoprefixer

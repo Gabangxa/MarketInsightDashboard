@@ -5,6 +5,8 @@ import OrderBookWidget, { type OrderBookEntry } from "@/components/OrderBookWidg
 import WebhookWidget from "@/components/WebhookWidget";
 import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
 import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
+import CorrelationMatrixWidget from "@/components/CorrelationMatrixWidget";
+import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
 
@@ -113,6 +115,26 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
           exchanges={params.technicalIndicatorExchanges}
         />
       )
+    },
+    {
+      id: "correlation-matrix-1",
+      title: "Correlation Matrix",
+      category: "analytics",
+      priority: "medium",
+      defaultSize: { w: 6, h: 6, minW: 4, minH: 4 },
+      component: (
+        <CorrelationMatrixWidget
+          exchanges={params.technicalIndicatorExchanges}
+        />
+      )
+    },
+    {
+      id: "market-sentiment-1",
+      title: "Market Sentiment",
+      category: "analytics",
+      priority: "medium",
+      defaultSize: { w: 3, h: 5, minW: 3, minH: 4 },
+      component: <MarketSentimentWidget />
     }
   ];
 }

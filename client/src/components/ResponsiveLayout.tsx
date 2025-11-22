@@ -23,7 +23,7 @@ export interface WidgetConfig {
   title: string;
   component: React.ReactNode;
   defaultSize: { w: number; h: number; minW?: number; minH?: number };
-  category: 'trading' | 'data' | 'alerts' | 'other';
+  category: 'trading' | 'data' | 'alerts' | 'analytics' | 'other';
   isVisible?: boolean;
   priority?: 'high' | 'medium' | 'low';
 }

@@ -337,5 +337,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market sentiment proxy - avoids CORS issues with Alternative.me API
+  app.get("/api/market-sentiment", requireAuth, async (req, res) => {
+    try {
+      const response = await fetch("https://api.alternative.me/fng/?limit=1");
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("Market sentiment fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch market sentiment data" });
+    }
+  });
+
   return httpServer;
 }
