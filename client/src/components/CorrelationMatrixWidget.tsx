@@ -170,7 +170,7 @@ export default function CorrelationMatrixWidget({ exchanges }: CorrelationMatrix
 
   return (
     <Card className="h-full flex flex-col" data-testid="widget-correlation-matrix">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 widget-drag-handle cursor-move">
         <div className="flex items-center gap-2">
           <CardTitle className="text-base font-semibold" data-testid="text-correlation-title">
             Correlation Matrix

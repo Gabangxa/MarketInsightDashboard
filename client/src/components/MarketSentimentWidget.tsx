@@ -90,7 +90,7 @@ export default function MarketSentimentWidget() {
 
   return (
     <Card className="h-full flex flex-col" data-testid="widget-market-sentiment">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 widget-drag-handle cursor-move">
         <CardTitle className="text-base font-semibold" data-testid="text-sentiment-title">
           Market Sentiment
         </CardTitle>
