@@ -1,5 +1,4 @@
 import { LayoutGrid, ChartBar, Bell, Webhook, Monitor, Settings, HelpCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -58,22 +57,26 @@ const navigationItems = [
 
 export function AppSidebar({ isConnected = true, activeView = 'dashboard', onViewChange }: AppSidebarProps) {
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-3 px-2 py-4">
-          <LayoutGrid className="h-6 w-6 text-primary" />
+    <Sidebar className="border-r border-white/5 bg-sidebar/50 backdrop-blur-xl">
+      <SidebarHeader className="pb-4">
+        <div className="flex items-center gap-3 px-4 py-5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary ring-1 ring-primary/30">
+            <LayoutGrid className="h-5 w-5" />
+          </div>
           <div>
-            <h2 className="font-bold text-lg">Market Dashboard</h2>
-            <p className="text-xs text-muted-foreground">Real-time market insights</p>
+            <h2 className="font-bold text-sm tracking-wide">MARKET INSIGHT</h2>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Pro Terminal</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70 px-4 mb-2">
+            Platform
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="px-2 space-y-1">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeView === item.id;
@@ -84,16 +87,21 @@ export function AppSidebar({ isConnected = true, activeView = 'dashboard', onVie
                       onClick={() => onViewChange?.(item.id)}
                       isActive={isActive}
                       disabled={item.badge === 'Soon'}
-                      className="w-full"
+                      className={cn(
+                        "w-full transition-all duration-200 h-10 rounded-md",
+                        isActive 
+                          ? "bg-primary/15 text-primary font-medium shadow-[0_0_15px_rgba(var(--primary),0.3)]" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      )}
                       data-testid={`nav-${item.id}`}
                     >
-                      <Icon className="h-4 w-4" />
-                      <div className="flex-1 flex items-center justify-between">
+                      <Icon className={cn("h-4 w-4", isActive && "text-primary")} />
+                      <div className="flex-1 flex items-center justify-between ml-2">
                         <span>{item.label}</span>
                         {item.badge && (
                           <Badge 
-                            variant={item.badge === 'Soon' ? 'secondary' : 'default'}
-                            className="ml-2 text-xs"
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-4 bg-transparent border-white/10 text-muted-foreground"
                           >
                             {item.badge}
                           </Badge>
@@ -107,20 +115,28 @@ export function AppSidebar({ isConnected = true, activeView = 'dashboard', onVie
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70 px-4 mb-2">System</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="px-2 space-y-1">
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => {/* Handle settings */}} data-testid="button-settings">
+                <SidebarMenuButton 
+                  onClick={() => {/* Handle settings */}} 
+                  data-testid="button-settings"
+                  className="text-muted-foreground hover:text-foreground hover:bg-white/5 h-10 rounded-md"
+                >
                   <Settings className="h-4 w-4" />
-                  <span>Settings</span>
+                  <span className="ml-2">Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => {/* Handle help */}} data-testid="button-help">
+                <SidebarMenuButton 
+                  onClick={() => {/* Handle help */}} 
+                  data-testid="button-help"
+                  className="text-muted-foreground hover:text-foreground hover:bg-white/5 h-10 rounded-md"
+                >
                   <HelpCircle className="h-4 w-4" />
-                  <span>Help & Support</span>
+                  <span className="ml-2">Help & Support</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -128,15 +144,26 @@ export function AppSidebar({ isConnected = true, activeView = 'dashboard', onVie
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="flex items-center gap-2 px-4 py-3 text-sm border-t">
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            isConnected ? "bg-green-500" : "bg-red-500"
-          )} />
-          <span className="text-muted-foreground">
-            {isConnected ? "Live Data Connected" : "Connection Lost"}
-          </span>
+      <SidebarFooter className="p-4">
+        <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/5 border border-white/5">
+          <div className="relative">
+            <div className={cn(
+              "w-2.5 h-2.5 rounded-full transition-colors duration-500",
+              isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+            )} />
+            <div className={cn(
+              "absolute inset-0 w-2.5 h-2.5 rounded-full animate-ping opacity-75",
+              isConnected ? "bg-emerald-500" : "bg-red-500"
+            )} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-medium leading-none">
+              {isConnected ? "Connected" : "Disconnected"}
+            </span>
+            <span className="text-[10px] text-muted-foreground mt-1">
+              {isConnected ? "Latency: <50ms" : "Reconnecting..."}
+            </span>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
