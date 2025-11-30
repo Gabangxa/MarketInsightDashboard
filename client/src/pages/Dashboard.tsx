@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, Upload, RotateCcw } from "lucide-react";
+import { Plus, Download, Upload, RotateCcw, Pencil, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ function DashboardContent() {
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
   const [isAddWidgetDialogOpen, setIsAddWidgetDialogOpen] = useState(false);
   const [selectedWidgetsToAdd, setSelectedWidgetsToAdd] = useState<string[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const { selectedSymbol, setSelectedSymbol } = useSymbol();
 
@@ -217,7 +218,27 @@ function DashboardContent() {
 
           <div className="flex items-center gap-2">
             <Button
-              variant="default"
+              variant={isEditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsEditMode(!isEditMode)}
+              className="gap-2"
+              data-testid="button-toggle-edit-mode"
+            >
+              {isEditMode ? (
+                <>
+                  <Lock className="h-4 w-4" />
+                  Lock Layout
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-4 w-4" />
+                  Edit Layout
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => {
                 setSelectedWidgetsToAdd([]);
@@ -306,6 +327,7 @@ function DashboardContent() {
                 description: `Layout saved for "${activeTab?.name}"`
               });
             }}
+            isEditable={isEditMode}
           />
         </div>
       </div>

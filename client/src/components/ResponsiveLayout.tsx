@@ -34,6 +34,7 @@ interface ResponsiveLayoutProps {
   onLayoutChange?: (layouts: { [key: string]: Layout[] }) => void;
   onSaveLayout?: () => void;
   className?: string;
+  isEditable?: boolean;
 }
 
 // Simplified responsive breakpoints
@@ -219,7 +220,8 @@ export default function ResponsiveLayout({
   initialLayout,
   onLayoutChange, 
   onSaveLayout,
-  className 
+  className,
+  isEditable = false
 }: ResponsiveLayoutProps) {
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg');
   const [isDragging, setIsDragging] = useState(false);
@@ -271,133 +273,93 @@ export default function ResponsiveLayout({
   return (
     <div className={cn("relative", className)}>
       {/* Layout Controls */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant="outline" 
-            className="gap-2"
-            data-testid="badge-current-breakpoint"
-          >
-            {getBreakpointIcon(currentBreakpoint)}
-            <span className="uppercase font-mono text-xs">
-              {currentBreakpoint}
-            </span>
-            <span className="text-muted-foreground">
-              {COLS[currentBreakpoint as keyof typeof COLS]} cols
-            </span>
-          </Badge>
-          
-          {isDragging && (
-            <Badge variant="default" className="gap-1" data-testid="badge-arranging">
-              <Grid className="h-3 w-3" />
-              Arranging
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowLayoutInfo(!showLayoutInfo)}
-            className="gap-2"
-            data-testid="button-toggle-layout-info"
-          >
-            {showLayoutInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            <span className="hidden sm:inline">
-              {showLayoutInfo ? 'Hide Info' : 'Show Info'}
-            </span>
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetLayouts}
-            className="gap-2"
-            data-testid="button-reset-layout"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden sm:inline">Reset</span>
-          </Button>
-
-          {onSaveLayout && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onSaveLayout}
+      {isEditable && (
+        <div className="flex items-center justify-between mb-4 p-2 bg-accent/10 border border-dashed border-primary/30 rounded-md">
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant="outline" 
               className="gap-2"
-              data-testid="button-save-layout"
+              data-testid="badge-current-breakpoint"
             >
-              <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">Save Layout</span>
+              {getBreakpointIcon(currentBreakpoint)}
+              <span className="uppercase font-mono text-xs">
+                {currentBreakpoint}
+              </span>
+              <span className="text-muted-foreground">
+                {COLS[currentBreakpoint as keyof typeof COLS]} cols
+              </span>
+            </Badge>
+            
+            {isDragging && (
+              <Badge variant="default" className="gap-1" data-testid="badge-arranging">
+                <Grid className="h-3 w-3" />
+                Arranging
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground ml-2">
+              Drag headers to move • Drag corners to resize
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetLayouts}
+              className="gap-2 h-7"
+              data-testid="button-reset-layout"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span className="hidden sm:inline">Reset Defaults</span>
             </Button>
-          )}
-        </div>
-      </div>
 
-      {/* Layout Information Panel */}
-      {showLayoutInfo && (
-        <div className="mb-4 p-4 bg-accent/20 rounded-lg border border-accent/40">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <h4 className="font-medium mb-2">Current Layout</h4>
-              <div className="space-y-1 text-muted-foreground">
-                <div>Breakpoint: {currentBreakpoint.toUpperCase()}</div>
-                <div>Columns: {COLS[currentBreakpoint as keyof typeof COLS]}</div>
-                <div>Widgets: {visibleWidgets.length}</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-2">Controls</h4>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <div>• Drag widgets by their title headers</div>
-                <div>• Resize from edges and corners</div>
-                <div>• Click Reset to restore defaults</div>
-                <div>• Click Save to persist layout</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-2">Grid System</h4>
-              <div className="text-xs text-muted-foreground">
-                12-column grid across all screen sizes. Widgets snap to grid and can be 
-                placed side-by-side. Vertical compaction keeps layout tidy.
-              </div>
-            </div>
+            {onSaveLayout && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onSaveLayout}
+                className="gap-2 h-7"
+                data-testid="button-save-layout"
+              >
+                <Save className="h-3 w-3" />
+                <span className="hidden sm:inline">Save Layout</span>
+              </Button>
+            )}
           </div>
         </div>
       )}
 
       {/* Responsive Grid Layout */}
-      <ResponsiveGridLayout
-        className="layout"
-        layouts={layouts}
-        breakpoints={BREAKPOINTS}
-        cols={COLS}
-        rowHeight={50}
-        onLayoutChange={handleLayoutChange}
-        onBreakpointChange={setCurrentBreakpoint}
-        onDragStart={() => setIsDragging(true)}
-        onDragStop={() => setIsDragging(false)}
-        onResizeStart={() => setIsDragging(true)}
-        onResizeStop={() => setIsDragging(false)}
-        isDraggable={true}
-        isResizable={true}
-        draggableHandle=".widget-drag-handle"
-        resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'n', 'e', 'w']}
-        margin={[8, 8]}
-        containerPadding={[0, 0]}
-        useCSSTransforms={true}
-        preventCollision={true}
-        compactType="vertical"
-      >
-        {visibleWidgets.map((widget) => (
-          <div key={widget.id} className="h-full">
-            {widget.component}
-          </div>
-        ))}
-      </ResponsiveGridLayout>
+      <div className={cn(isEditable ? "layout-editable" : "")}>
+        <ResponsiveGridLayout
+          className="layout"
+          layouts={layouts}
+          breakpoints={BREAKPOINTS}
+          cols={COLS}
+          rowHeight={50}
+          onLayoutChange={handleLayoutChange}
+          onBreakpointChange={setCurrentBreakpoint}
+          onDragStart={() => setIsDragging(true)}
+          onDragStop={() => setIsDragging(false)}
+          onResizeStart={() => setIsDragging(true)}
+          onResizeStop={() => setIsDragging(false)}
+          isDraggable={isEditable}
+          isResizable={isEditable}
+          draggableHandle=".widget-drag-handle"
+          resizeHandles={['se']} // Only show south-east handle for cleaner UI
+          margin={[8, 8]}
+          containerPadding={[0, 0]}
+          useCSSTransforms={true}
+          preventCollision={false} // Allow pushing
+          compactType="vertical"
+        >
+          {visibleWidgets.map((widget) => (
+            <div key={widget.id} className="h-full">
+              {widget.component}
+            </div>
+          ))}
+        </ResponsiveGridLayout>
+      </div>
     </div>
   );
 }
