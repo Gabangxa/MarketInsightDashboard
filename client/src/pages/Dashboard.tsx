@@ -318,8 +318,8 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Tab-Based Responsive Layout */}
-        <div className="flex-1 overflow-hidden">
+        {/* Tab-Based Responsive Layout - Scrollable container for long layouts */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <ResponsiveLayout
             widgets={activeTabWidgets}
             initialLayout={activeTab?.layout}

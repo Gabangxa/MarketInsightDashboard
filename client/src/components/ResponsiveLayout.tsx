@@ -271,7 +271,7 @@ export default function ResponsiveLayout({
   const visibleWidgets = widgets.filter(w => w.isVisible !== false);
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative pb-8", className)}>
       {/* Layout Controls */}
       {isEditable && (
         <div className="flex items-center justify-between mb-4 p-2 bg-accent/10 border border-dashed border-primary/30 rounded-md">
