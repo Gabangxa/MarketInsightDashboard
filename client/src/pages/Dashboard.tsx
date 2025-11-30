@@ -324,6 +324,7 @@ function DashboardContent() {
             widgets={activeTabWidgets}
             initialLayout={activeTab?.layout}
             isEditable={isLayoutEditable}
+            tabId={activeTabId}
             onLayoutChange={(layouts) => {
               saveLayout(layouts);
             }}

@@ -35,6 +35,7 @@ interface ResponsiveLayoutProps {
   onSaveLayout?: () => void;
   className?: string;
   isEditable?: boolean;
+  tabId?: string;
 }
 
 // Simplified responsive breakpoints
@@ -221,33 +222,36 @@ export default function ResponsiveLayout({
   onLayoutChange, 
   onSaveLayout,
   className,
-  isEditable = false
+  isEditable = false,
+  tabId
 }: ResponsiveLayoutProps) {
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg');
   const [isDragging, setIsDragging] = useState(false);
   const [showLayoutInfo, setShowLayoutInfo] = useState(false);
   
-  // Use ref to track if layouts have been initialized
-  const layoutsInitialized = useRef(false);
+  // Track tab ID to detect actual tab switches vs layout updates within same tab
+  const currentTabIdRef = useRef<string | undefined>(tabId);
+  
   const [layouts, setLayouts] = useState<{ [key: string]: Layout[] }>(() => {
-    layoutsInitialized.current = true;
+    currentTabIdRef.current = tabId;
     const defaultLayouts = generateDefaultLayouts(widgets);
     return mergeLayouts(initialLayout, defaultLayouts, widgets);
   });
 
-  // Reload layouts when widgets or initialLayout change (tab switching)
+  // Only reload layouts when tab actually changes (tab switching)
+  // NOT when initialLayout updates from saving within the same tab
   useEffect(() => {
-    const defaultLayouts = generateDefaultLayouts(widgets);
-    const mergedLayouts = mergeLayouts(initialLayout, defaultLayouts, widgets);
-    setLayouts(mergedLayouts);
-  }, [widgets, initialLayout]);
+    if (currentTabIdRef.current !== tabId) {
+      currentTabIdRef.current = tabId;
+      const defaultLayouts = generateDefaultLayouts(widgets);
+      const mergedLayouts = mergeLayouts(initialLayout, defaultLayouts, widgets);
+      setLayouts(mergedLayouts);
+    }
+  }, [tabId, widgets, initialLayout]);
 
   const handleLayoutChange = (layout: Layout[], allLayouts: { [key: string]: Layout[] }) => {
-    // Only update layouts if they've been initialized
-    if (layoutsInitialized.current) {
-      setLayouts(allLayouts);
-      onLayoutChange?.(allLayouts);
-    }
+    setLayouts(allLayouts);
+    onLayoutChange?.(allLayouts);
   };
 
   const resetLayouts = () => {
