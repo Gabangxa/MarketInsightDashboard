@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, Upload, RotateCcw, Pencil, Lock } from "lucide-react";
+import { Plus, Download, Upload, RotateCcw, Layout, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ function DashboardContent() {
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(["Bybit"]);
   const [isAddWidgetDialogOpen, setIsAddWidgetDialogOpen] = useState(false);
   const [selectedWidgetsToAdd, setSelectedWidgetsToAdd] = useState<string[]>([]);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isLayoutEditable, setIsLayoutEditable] = useState(false);
 
   const { selectedSymbol, setSelectedSymbol } = useSymbol();
 
@@ -188,6 +188,11 @@ function DashboardContent() {
     resetTabs
   } = useTabSystem(availableWidgets);
 
+  // Reset edit mode when tab changes
+  useEffect(() => {
+    setIsLayoutEditable(false);
+  }, [activeTabId]);
+
   return (
     <div className="h-full bg-background overflow-hidden" data-testid="page-dashboard">
       {/* Tab Management System */}
@@ -218,27 +223,27 @@ function DashboardContent() {
 
           <div className="flex items-center gap-2">
             <Button
-              variant={isEditMode ? "default" : "outline"}
+              variant={isLayoutEditable ? "default" : "outline"}
               size="sm"
-              onClick={() => setIsEditMode(!isEditMode)}
+              onClick={() => setIsLayoutEditable(!isLayoutEditable)}
               className="gap-2"
-              data-testid="button-toggle-edit-mode"
+              data-testid="button-edit-layout"
             >
-              {isEditMode ? (
+              {isLayoutEditable ? (
                 <>
-                  <Lock className="h-4 w-4" />
-                  Lock Layout
+                  <Check className="h-4 w-4" />
+                  Done Editing
                 </>
               ) : (
                 <>
-                  <Pencil className="h-4 w-4" />
+                  <Layout className="h-4 w-4" />
                   Edit Layout
                 </>
               )}
             </Button>
 
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={() => {
                 setSelectedWidgetsToAdd([]);
@@ -318,6 +323,7 @@ function DashboardContent() {
           <ResponsiveLayout
             widgets={activeTabWidgets}
             initialLayout={activeTab?.layout}
+            isEditable={isLayoutEditable}
             onLayoutChange={(layouts) => {
               saveLayout(layouts);
             }}
@@ -326,8 +332,8 @@ function DashboardContent() {
                 title: "Layout Saved",
                 description: `Layout saved for "${activeTab?.name}"`
               });
+              setIsLayoutEditable(false);
             }}
-            isEditable={isEditMode}
           />
         </div>
       </div>
