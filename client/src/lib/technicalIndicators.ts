@@ -395,6 +395,119 @@ export function calculateATR(data: PriceData[], period: number = 14): IndicatorR
 }
 
 /**
+ * Fibonacci Retracement Levels
+ * Calculates key Fibonacci levels based on the high/low range of the given data
+ */
+export interface FibonacciLevel {
+  level: number;
+  price: number;
+  label: string;
+}
+
+export interface FibonacciResult {
+  name: string;
+  high: number;
+  low: number;
+  range: number;
+  trend: 'uptrend' | 'downtrend';
+  levels: FibonacciLevel[];
+  currentPrice: number;
+  nearestLevel: FibonacciLevel | null;
+  signal: 'buy' | 'sell' | 'hold';
+}
+
+export function calculateFibonacciRetracement(data: PriceData[], lookbackPeriod: number = 50): FibonacciResult | null {
+  if (data.length < lookbackPeriod) {
+    return null;
+  }
+
+  const recentData = data.slice(-lookbackPeriod);
+  
+  // Find the swing high and swing low
+  let swingHigh = -Infinity;
+  let swingLow = Infinity;
+  let highIndex = 0;
+  let lowIndex = 0;
+
+  recentData.forEach((candle, index) => {
+    if (candle.high > swingHigh) {
+      swingHigh = candle.high;
+      highIndex = index;
+    }
+    if (candle.low < swingLow) {
+      swingLow = candle.low;
+      lowIndex = index;
+    }
+  });
+
+  const range = swingHigh - swingLow;
+  const currentPrice = data[data.length - 1].close;
+  
+  // Determine trend based on which came first - high or low
+  const trend: 'uptrend' | 'downtrend' = highIndex > lowIndex ? 'uptrend' : 'downtrend';
+
+  // Standard Fibonacci retracement levels
+  const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  const levelLabels = ['0%', '23.6%', '38.2%', '50%', '61.8%', '78.6%', '100%'];
+
+  const levels: FibonacciLevel[] = fibLevels.map((level, index) => {
+    let price: number;
+    if (trend === 'uptrend') {
+      // In uptrend, retracement levels are calculated from high going down
+      price = swingHigh - (range * level);
+    } else {
+      // In downtrend, retracement levels are calculated from low going up
+      price = swingLow + (range * level);
+    }
+    return {
+      level,
+      price,
+      label: levelLabels[index]
+    };
+  });
+
+  // Find nearest Fibonacci level to current price
+  let nearestLevel: FibonacciLevel | null = null;
+  let minDistance = Infinity;
+
+  levels.forEach(level => {
+    const distance = Math.abs(currentPrice - level.price);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestLevel = level;
+    }
+  });
+
+  // Generate signal based on price position relative to key levels
+  let signal: 'buy' | 'sell' | 'hold' = 'hold';
+  const pricePosition = (currentPrice - swingLow) / range;
+
+  if (trend === 'uptrend') {
+    // In uptrend, look for buy signals near support (38.2%, 50%, 61.8%)
+    if (pricePosition >= 0.382 && pricePosition <= 0.5) signal = 'buy';
+    else if (pricePosition >= 0.618 && pricePosition <= 0.786) signal = 'buy';
+    else if (pricePosition >= 0.95) signal = 'sell'; // Near resistance
+  } else {
+    // In downtrend, look for sell signals near resistance
+    if (pricePosition >= 0.5 && pricePosition <= 0.618) signal = 'sell';
+    else if (pricePosition >= 0.786) signal = 'sell';
+    else if (pricePosition <= 0.236) signal = 'buy'; // Potential reversal
+  }
+
+  return {
+    name: `Fibonacci(${lookbackPeriod})`,
+    high: swingHigh,
+    low: swingLow,
+    range,
+    trend,
+    levels,
+    currentPrice,
+    nearestLevel,
+    signal
+  };
+}
+
+/**
  * Williams %R
  */
 export function calculateWilliamsR(data: PriceData[], period: number = 14): IndicatorResult {
