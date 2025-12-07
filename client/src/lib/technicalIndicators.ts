@@ -316,7 +316,9 @@ export function calculateStochastic(data: PriceData[], kPeriod: number = 14, dPe
     const lowestLow = Math.min(...slice.map(d => d.low));
     const currentClose = data[i].close;
     
-    const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+    // Guard against division by zero when price range is flat
+    const range = highestHigh - lowestLow;
+    const k = range === 0 ? 50 : ((currentClose - lowestLow) / range) * 100;
     kValues.push(k);
   }
   
@@ -442,6 +444,11 @@ export function calculateFibonacciRetracement(data: PriceData[], lookbackPeriod:
 
   const range = swingHigh - swingLow;
   const currentPrice = data[data.length - 1].close;
+  
+  // Guard against flat price range
+  if (range === 0) {
+    return null;
+  }
   
   // Determine trend based on which came first - high or low
   const trend: 'uptrend' | 'downtrend' = highIndex > lowIndex ? 'uptrend' : 'downtrend';

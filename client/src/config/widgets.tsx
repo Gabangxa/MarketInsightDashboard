@@ -7,6 +7,8 @@ import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/Alerts
 import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
 import CorrelationMatrixWidget from "@/components/CorrelationMatrixWidget";
 import MarketSentimentWidget from "@/components/MarketSentimentWidget";
+import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
+import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
 import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
 
@@ -135,6 +137,30 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       priority: "medium",
       defaultSize: { w: 3, h: 5, minW: 3, minH: 4 },
       component: <MarketSentimentWidget />
+    },
+    {
+      id: "fibonacci-retracement-1",
+      title: "Fibonacci Retracement",
+      category: "analytics",
+      priority: "medium",
+      defaultSize: { w: 4, h: 8, minW: 3, minH: 6 },
+      component: (
+        <FibonacciRetracementWidget
+          exchanges={params.technicalIndicatorExchanges}
+        />
+      )
+    },
+    {
+      id: "stochastic-oscillator-1",
+      title: "Stochastic Oscillator",
+      category: "analytics",
+      priority: "medium",
+      defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
+      component: (
+        <StochasticOscillatorWidget
+          exchanges={params.technicalIndicatorExchanges}
+        />
+      )
     }
   ];
 }
