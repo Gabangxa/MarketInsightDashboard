@@ -41,48 +41,90 @@ export function calculateCandleCount(period: string, timeframe: string): number 
 
 export async function fetchBinance(symbol: string, timeframe: string, limit: number, endTime?: number): Promise<Candle[]> {
   const interval = timeframeMap.binance[timeframe as keyof typeof timeframeMap.binance];
-  if (!interval) return [];
+  if (!interval) {
+    console.log(`[Binance] Invalid timeframe: ${timeframe}`);
+    return [];
+  }
   let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   if (endTime) {
     url += `&endTime=${endTime}`;
   }
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map((k: any[]) => ({
-    timestamp: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
-  }));
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`[Binance] HTTP ${res.status}: ${res.statusText} for ${symbol}`);
+      return [];
+    }
+    const data = await res.json();
+    console.log(`[Binance] Fetched ${data.length} candles for ${symbol}`);
+    return data.map((k: any[]) => ({
+      timestamp: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
+    }));
+  } catch (error) {
+    console.error(`[Binance] Fetch error for ${symbol}:`, error);
+    return [];
+  }
 }
 
 export async function fetchBybit(symbol: string, timeframe: string, limit: number, endTime?: number): Promise<Candle[]> {
   const interval = timeframeMap.bybit[timeframe as keyof typeof timeframeMap.bybit];
-  if (!interval) return [];
+  if (!interval) {
+    console.log(`[Bybit] Invalid timeframe: ${timeframe}`);
+    return [];
+  }
   let url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${interval}&limit=${limit}`;
   if (endTime) {
     url += `&end=${endTime}`;
   }
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  if (data.retCode !== 0 || !data.result?.list) return [];
-  return data.result.list.map((k: any[]) => ({
-    timestamp: parseInt(k[0]), open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
-  })).reverse(); // Bybit returns descending
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`[Bybit] HTTP ${res.status}: ${res.statusText} for ${symbol}`);
+      return [];
+    }
+    const data = await res.json();
+    if (data.retCode !== 0 || !data.result?.list) {
+      console.error(`[Bybit] API error for ${symbol}: retCode=${data.retCode}, msg=${data.retMsg}`);
+      return [];
+    }
+    console.log(`[Bybit] Fetched ${data.result.list.length} candles for ${symbol}`);
+    return data.result.list.map((k: any[]) => ({
+      timestamp: parseInt(k[0]), open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
+    })).reverse(); // Bybit returns descending
+  } catch (error) {
+    console.error(`[Bybit] Fetch error for ${symbol}:`, error);
+    return [];
+  }
 }
 
 export async function fetchOKX(symbol: string, timeframe: string, limit: number, endTime?: number): Promise<Candle[]> {
   const interval = timeframeMap.okx[timeframe as keyof typeof timeframeMap.okx];
-  if (!interval) return [];
+  if (!interval) {
+    console.log(`[OKX] Invalid timeframe: ${timeframe}`);
+    return [];
+  }
   const instId = symbol.replace("USDT", "-USDT");
   let url = `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${interval}&limit=${limit}`;
   if (endTime) {
     url += `&after=${endTime}`; // OKX uses 'after' for pagination (older than timestamp)
   }
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  if (data.code !== "0" || !data.data) return [];
-  return data.data.map((k: any[]) => ({
-    timestamp: parseInt(k[0]), open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
-  })).reverse(); // OKX returns descending
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`[OKX] HTTP ${res.status}: ${res.statusText} for ${symbol}`);
+      return [];
+    }
+    const data = await res.json();
+    if (data.code !== "0" || !data.data) {
+      console.error(`[OKX] API error for ${symbol}: code=${data.code}, msg=${data.msg}`);
+      return [];
+    }
+    console.log(`[OKX] Fetched ${data.data.length} candles for ${symbol}`);
+    return data.data.map((k: any[]) => ({
+      timestamp: parseInt(k[0]), open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5])
+    })).reverse(); // OKX returns descending
+  } catch (error) {
+    console.error(`[OKX] Fetch error for ${symbol}:`, error);
+    return [];
+  }
 }
