@@ -168,7 +168,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const webhookMessage = await storage.createWebhookMessage(validated);
       broadcast({
         type: "webhook",
-        data: { ...webhookMessage, timestamp: webhookMessage.timestamp.toISOString() },
+        data: {
+          ...webhookMessage,
+          payload: webhookMessage.payload as Record<string, unknown> | undefined,
+          timestamp: webhookMessage.timestamp.toISOString(),
+        },
       });
       res.json({ success: true, id: webhookMessage.id });
     } catch (error) {

@@ -8,6 +8,7 @@ import {
   CandlestickSeries,
   LineSeries,
   LogicalRange,
+  UTCTimestamp,
 } from "lightweight-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,7 +176,7 @@ export default function ChartWidget({
       if (series) {
         series.setData(
           data.values.map((v) => ({
-            time: Math.floor(v.timestamp / 1000) as unknown as number,
+            time: Math.floor(v.timestamp / 1000) as UTCTimestamp,
             value: valueKey === "value" ? v.value : (v.metadata?.[valueKey] as number),
           }))
         );

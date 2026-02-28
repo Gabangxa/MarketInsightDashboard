@@ -81,7 +81,7 @@ function AuthenticatedApp() {
                      <WifiOff className="h-3 w-3 text-red-500" />
                    )}
                    <span className="text-xs font-medium tabular-nums">
-                     {isConnected ? "12ms" : "Offline"}
+                     {isConnected ? "Live" : "Offline"}
                    </span>
                 </div>
 
