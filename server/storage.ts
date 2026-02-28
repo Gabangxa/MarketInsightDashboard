@@ -16,6 +16,12 @@ import {
   dashboardConfig
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+
+/**
+ * Fallback user ID used when no authenticated user is present (e.g. public webhook).
+ * TODO: Remove this once all endpoints require authentication.
+ */
+const PUBLIC_USER_ID = "public";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq, desc } from "drizzle-orm";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -88,7 +94,7 @@ export class MemStorage implements IStorage {
     const newToken: WatchlistToken = {
       ...token,
       id,
-      userId: token.userId || "default-user",
+      userId: token.userId || PUBLIC_USER_ID,
       exchanges: token.exchanges as string[],
       createdAt: new Date(),
     };
@@ -111,7 +117,7 @@ export class MemStorage implements IStorage {
     const newAlert: Alert = {
       ...alert,
       id,
-      userId: alert.userId || "default-user",
+      userId: alert.userId || PUBLIC_USER_ID,
       symbol: alert.symbol || null,
       exchanges: alert.exchanges as string[],
       condition: alert.condition || null,
@@ -152,7 +158,7 @@ export class MemStorage implements IStorage {
     const newMessage: WebhookMessage = {
       ...message,
       id,
-      userId: message.userId || "default-user",
+      userId: message.userId || PUBLIC_USER_ID,
       payload: message.payload || null,
       bookmarked: message.bookmarked || false,
       timestamp: new Date(),
@@ -176,7 +182,7 @@ export class MemStorage implements IStorage {
   }
 
   async saveDashboardConfig(config: InsertDashboardConfig): Promise<DashboardConfig> {
-    const userId = config.userId || "default-user";
+    const userId = config.userId || PUBLIC_USER_ID;
     const existing = await this.getDashboardConfig(userId);
     
     if (existing) {
@@ -233,7 +239,10 @@ export class PostgresStorage implements IStorage {
   }
 
   async createWatchlistToken(token: InsertWatchlistToken): Promise<WatchlistToken> {
-    const result = await this.db.insert(watchlistTokens).values(token as any).returning();
+    const result = await this.db
+      .insert(watchlistTokens)
+      .values({ ...token, exchanges: token.exchanges as string[] })
+      .returning();
     return result[0];
   }
 
@@ -250,7 +259,10 @@ export class PostgresStorage implements IStorage {
   }
 
   async createAlert(alert: InsertAlert): Promise<Alert> {
-    const result = await this.db.insert(alerts).values(alert as any).returning();
+    const result = await this.db
+      .insert(alerts)
+      .values({ ...alert, exchanges: alert.exchanges as string[] })
+      .returning();
     return result[0];
   }
 
@@ -279,7 +291,7 @@ export class PostgresStorage implements IStorage {
   async createWebhookMessage(message: InsertWebhookMessage): Promise<WebhookMessage> {
     const result = await this.db.insert(webhookMessages).values({
       ...message,
-      userId: message.userId || "default-user",
+      userId: message.userId || PUBLIC_USER_ID,
     }).returning();
     return result[0];
   }
@@ -303,7 +315,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async saveDashboardConfig(config: InsertDashboardConfig): Promise<DashboardConfig> {
-    const userId = config.userId || "default-user";
+    const userId = config.userId || PUBLIC_USER_ID;
     const existing = await this.getDashboardConfig(userId);
     
     if (existing) {
