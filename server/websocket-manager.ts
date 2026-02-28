@@ -18,13 +18,6 @@ export interface OrderBookData {
   timestamp: number;
 }
 
-export interface SystemStatus {
-  exchange: string;
-  status: "connected" | "disconnected" | "reconnecting";
-  latency: number;
-  lastUpdate: number;
-}
-
 // Local order book state for Bybit (maintains full snapshot + applies deltas)
 interface OrderBookState {
   bids: Map<number, number>; // price -> size
@@ -41,27 +34,8 @@ export class ExchangeWebSocketManager extends EventEmitter {
   // Maintain local order book state for Bybit
   private bybitOrderBooks: Map<string, OrderBookState> = new Map();
 
-  // Performance metrics
-  private pingTimes: Map<string, number> = new Map(); // key -> start time
-  private statuses: Map<string, SystemStatus> = new Map();
-
   constructor() {
     super();
-  }
-
-  private updateStatus(exchange: string, status: SystemStatus["status"], latency: number = 0) {
-    const current = this.statuses.get(exchange);
-    // If connected, keep the last latency unless updated
-    const newLatency = latency > 0 ? latency : (current?.latency || 0);
-
-    const newStatus: SystemStatus = {
-      exchange,
-      status,
-      latency: newLatency,
-      lastUpdate: Date.now(),
-    };
-    this.statuses.set(exchange, newStatus);
-    this.emit("systemStatus", newStatus);
   }
 
   subscribeToSymbol(symbol: string, exchanges: string[]) {
@@ -195,11 +169,9 @@ export class ExchangeWebSocketManager extends EventEmitter {
     
     const ws = new WebSocket(wsUrl);
     this.bybitConnections.set(key, ws);
-    this.updateStatus("Bybit", "reconnecting");
 
     ws.on("open", () => {
       console.log(`[Bybit] Connected for ${symbol}`);
-      this.updateStatus("Bybit", "connected");
       
       // Subscribe to ticker and orderbook
       // Bybit V5 WebSocket spot topics: tickers.BTCUSDT, orderbook.50.BTCUSDT
@@ -212,7 +184,6 @@ export class ExchangeWebSocketManager extends EventEmitter {
       // Start ping interval for this connection
       const pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
-          this.pingTimes.set(key, Date.now());
           ws.send(JSON.stringify({ op: "ping" }));
         }
       }, 20000);
@@ -223,13 +194,7 @@ export class ExchangeWebSocketManager extends EventEmitter {
       try {
         const message = JSON.parse(data.toString());
         
-        if (message.op === "pong") {
-          const startTime = this.pingTimes.get(key);
-          if (startTime) {
-            const latency = Date.now() - startTime;
-            this.updateStatus("Bybit", "connected", latency);
-          }
-        } else if (message.topic && message.topic.startsWith("tickers.")) {
+        if (message.topic && message.topic.startsWith("tickers.")) {
           const tickerData = message.data;
           const marketData: MarketData = {
             exchange: "Bybit",
@@ -328,7 +293,6 @@ export class ExchangeWebSocketManager extends EventEmitter {
 
     ws.on("close", () => {
       console.log(`[Bybit] Connection closed for ${symbol}, reconnecting...`);
-      this.updateStatus("Bybit", "disconnected");
       const pingInterval = this.bybitPingIntervals.get(key);
       if (pingInterval) {
         clearInterval(pingInterval);
@@ -354,11 +318,9 @@ export class ExchangeWebSocketManager extends EventEmitter {
     
     const ws = new WebSocket(wsUrl);
     this.okxConnections.set(key, ws);
-    this.updateStatus("OKX", "reconnecting");
 
     ws.on("open", () => {
       console.log(`[OKX] Connected for ${symbol}`);
-      this.updateStatus("OKX", "connected");
       
       // Subscribe to ticker and orderbook
       const instId = symbol.replace("USDT", "-USDT");
@@ -370,31 +332,11 @@ export class ExchangeWebSocketManager extends EventEmitter {
         ]
       }));
       console.log(`[OKX] Subscribed to ${instId}`);
-
-      // Start ping interval for this connection
-      const pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          this.pingTimes.set(key, Date.now());
-          ws.send("ping");
-        }
-      }, 20000);
-      // Using bybitPingIntervals map for convenience, though keys are prefixed with okx-
-      this.bybitPingIntervals.set(key, pingInterval);
     });
 
     ws.on("message", (data: WebSocket.Data) => {
       try {
-        const msgString = data.toString();
-        if (msgString === "pong") {
-          const startTime = this.pingTimes.get(key);
-          if (startTime) {
-            const latency = Date.now() - startTime;
-            this.updateStatus("OKX", "connected", latency);
-          }
-          return;
-        }
-
-        const message = JSON.parse(msgString);
+        const message = JSON.parse(data.toString());
         
         if (message.data && message.arg) {
           const channelData = message.data[0];
@@ -431,14 +373,6 @@ export class ExchangeWebSocketManager extends EventEmitter {
 
     ws.on("close", () => {
       console.log(`[OKX] Connection closed for ${symbol}, reconnecting...`);
-      this.updateStatus("OKX", "disconnected");
-
-      const pingInterval = this.bybitPingIntervals.get(key);
-      if (pingInterval) {
-        clearInterval(pingInterval);
-        this.bybitPingIntervals.delete(key);
-      }
-
       this.okxConnections.delete(key);
       this.scheduleReconnect(`okx-${symbol}`, () => this.connectOKX(symbol));
     });

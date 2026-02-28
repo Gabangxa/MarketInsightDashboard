@@ -38,7 +38,7 @@ function DashboardContent() {
   const { toast } = useToast();
 
   // WebSocket connection
-  const { marketData, orderBooks, systemStatus, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
+  const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
 
   // Fetch data for coordination (WebSocket subscriptions, alert monitoring)
   // These queries are shared with widgets (React Query deduplicates automatically)
@@ -139,7 +139,6 @@ function DashboardContent() {
   const availableWidgets = useMemo(() => createAvailableWidgets({
     marketData,
     orderBooks,
-    systemStatus,
     selectedExchanges,
     onMarketConfigure: () => {
       console.log("Opening market config modal");
@@ -167,7 +166,7 @@ function DashboardContent() {
     },
     technicalIndicatorExchanges,
   }), [
-    marketData, orderBooks, systemStatus, selectedExchanges, orderBookViewMode,
+    marketData, orderBooks, selectedExchanges, orderBookViewMode, 
     webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges
   ]);
 

@@ -2,12 +2,11 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { wsManager, type MarketData, type OrderBookData, type SystemStatus } from "./websocket-manager";
+import { wsManager, type MarketData, type OrderBookData } from "./websocket-manager";
 import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema, insertUserSchema } from "@shared/schema";
 import { hash } from "bcryptjs";
 import passport from "passport";
 import { sessionParser } from "./index";
-import { registerHistoricalDataRoutes } from "./historical-data";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -135,10 +134,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   wsManager.on("orderBook", (data: OrderBookData) => {
     broadcast({ type: "orderBook", data });
-  });
-
-  wsManager.on("systemStatus", (data: SystemStatus) => {
-    broadcast({ type: "systemStatus", data });
   });
 
   // WebSocket server for client connections
@@ -358,9 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch market sentiment data" });
     }
   });
-
-  // Register historical data routes
-  registerHistoricalDataRoutes(app);
 
   return httpServer;
 }

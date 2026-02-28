@@ -26,17 +26,9 @@ export interface WebhookMessage {
   timestamp: Date;
 }
 
-export interface SystemStatus {
-  exchange: string;
-  status: "connected" | "disconnected" | "reconnecting";
-  latency: number;
-  lastUpdate: number;
-}
-
 interface UseMarketWebSocketReturn {
   marketData: Map<string, Map<string, MarketData>>; // symbol -> exchange -> data
   orderBooks: Map<string, Map<string, OrderBookData>>; // symbol -> exchange -> data
-  systemStatus: Map<string, SystemStatus>;
   newWebhook: WebhookMessage | null;
   isConnected: boolean;
   subscribe: (symbol: string, exchanges: string[]) => void;
@@ -47,7 +39,6 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const [marketData, setMarketData] = useState<Map<string, Map<string, MarketData>>>(new Map());
   const [orderBooks, setOrderBooks] = useState<Map<string, Map<string, OrderBookData>>>(new Map());
-  const [systemStatus, setSystemStatus] = useState<Map<string, SystemStatus>>(new Map());
   const [newWebhook, setNewWebhook] = useState<WebhookMessage | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
@@ -121,13 +112,6 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
         } else if (message.type === "webhook") {
           const data: WebhookMessage = message.data;
           setNewWebhook(data);
-        } else if (message.type === "systemStatus") {
-          const data: SystemStatus = message.data;
-          setSystemStatus(prev => {
-            const newMap = new Map(prev);
-            newMap.set(data.exchange, data);
-            return newMap;
-          });
         }
       } catch (error) {
         console.error("WebSocket message error:", error);
@@ -198,7 +182,6 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   return {
     marketData,
     orderBooks,
-    systemStatus,
     newWebhook,
     isConnected,
     subscribe,

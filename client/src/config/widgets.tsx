@@ -9,8 +9,6 @@ import CorrelationMatrixWidget from "@/components/CorrelationMatrixWidget";
 import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
 import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
-import SystemStatusWidget, { type SystemStatus } from "@/components/SystemStatusWidget";
-import ChartWidget from "@/components/ChartWidget";
 import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
 
@@ -18,7 +16,6 @@ interface WidgetFactoryParams {
   // Real-time data
   marketData: Map<string, Map<string, any>>;
   orderBooks: Map<string, Map<string, any>>;
-  systemStatus?: Map<string, SystemStatus>;
   selectedExchanges: string[];
   
   // Widget configurations
@@ -110,22 +107,6 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       )
     },
     {
-      id: "chart-1",
-      title: "Advanced Chart",
-      category: "trading",
-      priority: "high",
-      defaultSize: { w: 6, h: 6, minW: 4, minH: 4 },
-      component: (
-        <ChartWidget
-          symbol="BTCUSDT" // Default
-          timeframe="1h"
-          chartType="candlestick"
-          priceData={params.marketData.get("BTCUSDT")?.get("Bybit") ? new Map([[Date.now(), params.marketData.get("BTCUSDT")?.get("Bybit") as any]]) : new Map()} // Simplified passing for now
-          onConfigure={() => console.log("Configure Chart")}
-        />
-      )
-    },
-    {
       id: "technical-indicators-1",
       title: "Technical Indicators",
       category: "trading",
@@ -178,18 +159,6 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       component: (
         <StochasticOscillatorWidget
           exchanges={params.technicalIndicatorExchanges}
-        />
-      )
-    },
-    {
-      id: "system-status-1",
-      title: "System Status",
-      category: "other",
-      priority: "medium",
-      defaultSize: { w: 3, h: 4, minW: 3, minH: 3 },
-      component: (
-        <SystemStatusWidget
-          statuses={params.systemStatus || new Map()}
         />
       )
     }
