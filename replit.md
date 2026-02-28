@@ -28,7 +28,7 @@ Exchange integration involves direct WebSocket connections to Bybit and OKX, wit
 The database schema, implemented with PostgreSQL and Drizzle ORM, includes tables for `users`, `watchlist_tokens`, `alerts`, `webhook_messages`, and `dashboard_config`. UUID primary keys, JSONB columns for flexible data, and timestamps are utilized. Decimal precision is set for financial data.
 
 ### Authentication and Authorization
-The system defines a user schema with username/password fields and uses a "default-user" ID for current operations. The intended pattern is session-based authentication with user-scoped data access via `userId` foreign keys, ensuring all widgets and configurations are tied to an authenticated user.
+The system uses Passport.js with a Local strategy for username/password authentication. Sessions are managed via `express-session` with a PostgreSQL session store (`connect-pg-simple`) when `DATABASE_URL` is set, falling back to an in-memory store for local development. All user data is scoped by `userId` foreign keys. Public endpoints (e.g. `POST /api/webhook`) that lack an authenticated user fall back to a `PUBLIC_USER_ID` constant (`"public"`) for storage isolation. Shared WebSocket message types (`ServerMessage`, `ClientMessage`) and exchange constants (`SUPPORTED_EXCHANGES`, `SESSION_MAX_AGE_MS`) live in `shared/` and are imported by both the server and client.
 
 ## External Dependencies
 
