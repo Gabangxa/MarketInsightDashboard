@@ -322,19 +322,20 @@ export default function OrderBookWidget({ orderBooks, onConfigure, viewMode = "b
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Column Headers */}
-        <div className="grid grid-cols-3 text-xs text-muted-foreground font-medium px-2">
-          <span className="text-left">Price (USD)</span>
-          <span className="text-right">Size</span>
-          <span className="text-right">Total</span>
-        </div>
+      {/* Column Headers — fixed, does not scroll */}
+      <div className="shrink-0 grid grid-cols-3 text-xs text-muted-foreground font-medium px-2 mb-1">
+        <span className="text-left">Price (USD)</span>
+        <span className="text-right">Size</span>
+        <span className="text-right">Total</span>
+      </div>
 
+      {/* Order levels — fills remaining card height */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Asks (Sells) - Red, furthest from mid at top */}
         {(viewMode === "both" || viewMode === "asks") && (
-          <div className="space-y-1">
+          <div className="flex-1 overflow-auto space-y-0.5 min-h-0">
             {displayAsks.length > 0 ? (
-              displayAsks.map((ask, idx) => (
+              displayAsks.map((ask) => (
                 <div
                   key={`ask-${ask.percentage}`}
                   className="relative grid grid-cols-3 text-xs font-mono py-1 px-2"
@@ -361,10 +362,10 @@ export default function OrderBookWidget({ orderBooks, onConfigure, viewMode = "b
           </div>
         )}
 
-        {/* Spread - Only show when both sides are visible */}
+        {/* Spread — fixed height, never scrolls */}
         {viewMode === "both" && (
-          <div className="py-2 border-y border-border">
-            <div className="flex justify-between items-center text-xs">
+          <div className="shrink-0 py-1.5 border-y border-border">
+            <div className="flex justify-between items-center text-xs px-2">
               <span className="text-muted-foreground">Spread</span>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-medium">${spread.toFixed(2)}</span>
@@ -376,9 +377,9 @@ export default function OrderBookWidget({ orderBooks, onConfigure, viewMode = "b
 
         {/* Bids (Buys) - Green, closest to mid at top */}
         {(viewMode === "both" || viewMode === "bids") && (
-          <div className="space-y-1">
+          <div className="flex-1 overflow-auto space-y-0.5 min-h-0">
             {displayBids.length > 0 ? (
-              displayBids.map((bid, idx) => (
+              displayBids.map((bid) => (
                 <div
                   key={`bid-${bid.percentage}`}
                   className="relative grid grid-cols-3 text-xs font-mono py-1 px-2"

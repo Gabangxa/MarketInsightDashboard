@@ -55,7 +55,7 @@ export function useChartData({ symbol, timeframe, realTimeDataMap }: UseChartDat
           else period = "1Y";
         }
 
-        const data = await fetchHistoricalCandles(symbol, timeframe, period, undefined, endTime);
+        const data = await fetchHistoricalCandles(symbol, timeframe, period);
 
         setHistoricalData((prev) => {
           const next = new Map(endTime ? prev : new Map<number, Candle>());

@@ -28,17 +28,17 @@ const DEFAULT_TAB: Omit<TabConfig, 'id' | 'createdAt' | 'updatedAt'> = {
       { i: 'market-1', x: 0, y: 0, w: 9, h: 3, minW: 3, minH: 2 },
       { i: 'market-sentiment-1', x: 9, y: 0, w: 3, h: 3, minW: 3, minH: 2 },
       
-      // Row 2: The "Trading Desk" (Watchlist | Charts | Depth)
-      { i: 'watchlist-1', x: 0, y: 3, w: 2, h: 12, minW: 2, minH: 4 },
-      { i: 'technical-indicators-1', x: 2, y: 3, w: 7, h: 12, minW: 4, minH: 6 },
-      { i: 'orderbook-1', x: 9, y: 3, w: 3, h: 12, minW: 3, minH: 6 },
+      // Row 2: The "Trading Desk" (Watchlist | Indicators | Order Book)
+      { i: 'watchlist-1', x: 0, y: 3, w: 3, h: 10, minW: 2, minH: 4 },
+      { i: 'technical-indicators-1', x: 3, y: 3, w: 6, h: 10, minW: 4, minH: 6 },
+      { i: 'orderbook-1', x: 9, y: 3, w: 3, h: 10, minW: 3, minH: 6 },
       
       // Row 3: Event Monitoring (Alerts & Webhooks)
-      { i: 'alerts-1', x: 0, y: 15, w: 6, h: 6, minW: 4, minH: 3 },
-      { i: 'webhook-1', x: 6, y: 15, w: 6, h: 6, minW: 4, minH: 3 },
-      
+      { i: 'alerts-1', x: 0, y: 13, w: 6, h: 6, minW: 4, minH: 3 },
+      { i: 'webhook-1', x: 6, y: 13, w: 6, h: 6, minW: 4, minH: 3 },
+
       // Row 4: Footer Analysis (Correlation)
-      { i: 'correlation-matrix-1', x: 0, y: 21, w: 12, h: 8, minW: 6, minH: 4 }
+      { i: 'correlation-matrix-1', x: 0, y: 19, w: 12, h: 8, minW: 6, minH: 4 }
     ],
     md: [
       // Tablet Layout (Stacking 2 columns)

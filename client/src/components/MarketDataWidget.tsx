@@ -63,11 +63,11 @@ export default function MarketDataWidget({ marketData, onConfigure }: MarketData
   
   return (
     <Card className={cn(
-      "h-full p-4 relative transition-colors duration-300",
+      "h-full p-4 relative flex flex-col transition-colors duration-300",
       flashColor === "positive" && "bg-positive/10",
       flashColor === "negative" && "bg-negative/10"
     )} data-testid="widget-market-data">
-      <div className="flex items-start justify-between mb-4 widget-drag-handle cursor-move">
+      <div className="flex items-start justify-between mb-4 widget-drag-handle cursor-move shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {data.symbol}
@@ -90,7 +90,7 @@ export default function MarketDataWidget({ marketData, onConfigure }: MarketData
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex-1 flex flex-col justify-center gap-3 min-h-0 overflow-auto">
         <div>
           <div className="font-mono text-2xl font-semibold tracking-tight">
             ${data.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -113,7 +113,7 @@ export default function MarketDataWidget({ marketData, onConfigure }: MarketData
           </div>
         </div>
 
-        <div className="pt-3 border-t border-border space-y-2">
+        <div className="pt-3 border-t border-border flex flex-col gap-2">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">24h Volume (USDT)</span>
             <span className="text-sm font-mono font-semibold">
