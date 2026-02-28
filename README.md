@@ -2,262 +2,214 @@
 
 A professional-grade, real-time cryptocurrency market monitoring dashboard that aggregates data from multiple exchanges via WebSocket connections. Built with React, TypeScript, and Express, featuring a customizable drag-and-drop interface with persistent configurations.
 
-![Dashboard Preview](https://img.shields.io/badge/status-active-success)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)
 
 ## Features
 
-### 📊 Real-Time Market Data
-- **Multi-Exchange Support**: Aggregates data from Bybit, with Binance and OKX support configured
-- **WebSocket Streaming**: Live price updates, 24-hour changes, and volume tracking
-- **Order Book Visualization**: Adaptive bucketing algorithm for clean bid/ask depth display
+### Real-Time Market Data
+- **Multi-Exchange Support**: Live data aggregated from Bybit and OKX via WebSocket
+- **Order Book Visualization**: Adaptive bucketing with delta-merge for Bybit and snapshot for OKX
 - **Visual Feedback**: Price changes highlighted with green/red flash animations
 
-### 🎯 Smart Alerts
-- **Price Alerts**: Monitor symbols with customizable thresholds (>, <, >=, <=)
+### Smart Alerts
+- **Price Alerts**: Monitor symbols with customizable thresholds (`>`, `<`, `>=`, `<=`)
 - **Keyword Alerts**: Scan webhook messages for specific keywords
 - **Trigger Limits**: Set maximum trigger counts or unlimited alerts
-- **Toast Notifications**: Beautiful gradient notifications with custom styling
-- **Editable Alerts**: Modify existing alerts with pre-filled data
+- **Toast Notifications**: In-app notifications with custom styling
 
-### 📌 Watchlist Management
-- Track up to 10 cryptocurrency symbols simultaneously
-- Multi-exchange selection per symbol
+### Technical Analysis
+- **Indicators**: SMA, EMA, RSI, MACD, Bollinger Bands, Stochastic, ATR, Williams %R
+- **Fibonacci Retracement**: Auto-calculated swing high/low levels
+- **Configurable Timeframes**: 1m – 1M bars with historical data from exchange APIs
+
+### Watchlist Management
+- Track cryptocurrency symbols across multiple exchanges simultaneously
 - Persistent storage across sessions
-- Quick add/remove functionality
 
-### 🔗 Webhook Integration
-- Receive external messages via webhook endpoint
-- Bookmark important messages
-- Filter and search through message history
-- Real-time message display
+### Webhook Integration
+- Receive external messages via a public webhook endpoint (`POST /api/webhook`)
+- Bookmark, filter, and search through message history
 
-### 🎨 Customizable Dashboard
-- **Drag-and-Drop Widgets**: Rearrange dashboard layout with react-grid-layout
-- **Responsive Design**: Optimized layouts for desktop, tablet, and mobile
-- **Persistent Layouts**: Save your preferred widget arrangement
-- **Dark Mode**: Professional trading terminal aesthetic
-
-### 💾 Data Persistence
-- PostgreSQL database with Drizzle ORM
-- All configurations persist across sessions
-- Automatic fallback to in-memory storage
+### Customizable Dashboard
+- **Drag-and-Drop Widgets**: Rearrange with react-grid-layout
+- **Persistent Layouts**: Layout saved automatically to the database
+- **Tab System**: Create and manage multiple dashboard views
 
 ## Tech Stack
 
-**Frontend:**
-- React 18 with TypeScript
-- Vite (build tool & dev server)
-- TanStack Query (React Query v5)
-- Tailwind CSS + shadcn/ui components
-- react-grid-layout (drag-and-drop)
-- Wouter (routing)
-
-**Backend:**
-- Express.js on Node.js
-- WebSocket (ws library)
-- TypeScript
-- Drizzle ORM with Neon serverless PostgreSQL
-
-**Infrastructure:**
-- PostgreSQL database (Neon)
-- Real-time WebSocket connections
-- RESTful API endpoints
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | React 18, TypeScript, Vite, TanStack Query v5, Wouter |
+| UI | Tailwind CSS, shadcn/ui (Radix UI), react-grid-layout, lightweight-charts, Recharts |
+| Backend | Express.js, ws (WebSocket), Passport.js, express-session |
+| Database | Drizzle ORM, Neon serverless PostgreSQL |
+| Testing | Vitest (40 tests) |
+| Tooling | ESLint, Prettier |
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+ installed
-- PostgreSQL database (automatically provisioned on Replit)
+- Node.js 18+
+- PostgreSQL database (or use the in-memory fallback for local development)
 
 ### Installation
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Set up the database:**
-   ```bash
-   npm run db:push
-   ```
-
-3. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-
-The application will be available at `http://localhost:5000`
-
-## Usage
-
-### Adding Symbols to Watchlist
-
-1. Click the **Add Token** button in the Watchlist widget
-2. Enter the symbol (e.g., `BTCUSDT`, `ETHUSDT`)
-3. Select one or more exchanges (Bybit recommended)
-4. Click **Save**
-
-### Creating Price Alerts
-
-1. Click **Add Alert** in the Alerts widget
-2. Select **Price Alert** type
-3. Configure:
-   - Symbol (must be in watchlist or actively monitored)
-   - Exchange(s)
-   - Condition (>, <, >=, <=)
-   - Target price
-   - Max triggers (optional, leave empty for unlimited)
-4. Click **Save Alert**
-
-### Creating Keyword Alerts
-
-1. Click **Add Alert** in the Alerts widget
-2. Select **Keyword Alert** type
-3. Configure:
-   - Keyword to monitor
-   - Exchange(s)
-   - Max triggers (optional)
-4. Click **Save Alert**
-
-### Editing Alerts
-
-1. Click the **Edit** (pencil) icon on any alert
-2. Modify the configuration
-3. Click **Save Alert** to update
-
-### Customizing Dashboard Layout
-
-1. Drag widgets by their headers to rearrange
-2. Resize widgets using the drag handle in the bottom-right corner
-3. Your layout is automatically saved to the database
-
-## API Endpoints
-
-### Watchlist
-- `GET /api/watchlist` - Get user's watchlist tokens
-- `POST /api/watchlist` - Add a new token
-- `DELETE /api/watchlist/:id` - Remove a token
-
-### Alerts
-- `GET /api/alerts` - Get user's alerts
-- `POST /api/alerts` - Create a new alert
-- `PATCH /api/alerts/:id` - Update an alert
-- `DELETE /api/alerts/:id` - Delete an alert
-
-### Webhooks
-- `GET /api/webhooks` - Get webhook messages
-- `POST /api/webhook` - Receive external webhook
-- `PATCH /api/webhooks/:id` - Update message (bookmark)
-
-### Dashboard
-- `GET /api/dashboard-config` - Get saved layout
-- `POST /api/dashboard-config` - Save layout configuration
-
-### WebSocket
-- `ws://localhost:5000/ws` - Real-time market data stream
-
-## Database Schema
-
-```sql
--- Users (authentication ready)
-users (id, username, password)
-
--- Watchlist tokens
-watchlist_tokens (id, user_id, symbol, exchanges, created_at)
-
--- Alerts configuration
-alerts (id, user_id, type, symbol, exchanges, condition, value, 
-        keyword, triggered, last_triggered, trigger_count, 
-        max_triggers, created_at)
-
--- Webhook messages
-webhook_messages (id, user_id, source, message, payload, 
-                  bookmarked, timestamp)
-
--- Dashboard configuration
-dashboard_config (id, user_id, layout, updated_at)
-```
-
-## Architecture
-
-### WebSocket Flow
-```
-Exchange WebSocket → Backend Manager → Client WebSocket → React State → UI Widgets
-```
-
-### Data Flow
-1. Client subscribes to symbols via WebSocket
-2. Backend maintains connections to exchange APIs
-3. Market data aggregated from multiple exchanges
-4. Real-time updates pushed to connected clients
-5. Alert monitor checks conditions on every update
-
-### Storage Pattern
-- Abstract `IStorage` interface for flexibility
-- `PostgresStorage` implementation using Drizzle ORM
-- Fallback to `MemStorage` for development without database
-
-## Exchange Support
-
-| Exchange | Status | WebSocket URL |
-|----------|--------|---------------|
-| Bybit | ✅ Working | `wss://stream.bybit.com/v5/public/spot` |
-| Binance | ❌ Geo-blocked | `wss://stream.binance.com:9443` |
-| OKX | ⏳ Configured | `wss://ws.okx.com:8443/ws/v5/public` |
-
-**Note:** Binance is currently blocked due to geo-restrictions from Replit servers.
-
-## Known Limitations
-
-1. **Price Alerts**: Only work for symbols with active WebSocket connections (must be in watchlist or actively monitored)
-2. **Exchange Availability**: Binance blocked from Replit servers (error 451)
-3. **Default User**: Currently uses a single default user ID (`"default-user"`)
-
-## Development
-
-### Project Structure
-```
-├── client/               # Frontend React application
-│   ├── src/
-│   │   ├── components/   # React components & widgets
-│   │   ├── lib/         # Utilities & hooks
-│   │   └── pages/       # Page components
-├── server/              # Backend Express application
-│   ├── routes.ts        # API routes
-│   ├── storage.ts       # Database layer
-│   └── websocket.ts     # WebSocket manager
-├── shared/              # Shared types & schemas
-│   └── schema.ts        # Drizzle schema & Zod validation
-└── migrations/          # Database migrations
-```
-
-### Running Database Migrations
-
 ```bash
-# Push schema changes to database
+# Install dependencies
+npm install
+
+# Push the database schema
 npm run db:push
 
-# Force push (if warnings about data loss)
-npm run db:push --force
+# Start the development server
+npm run dev
 ```
+
+The app is available at `http://localhost:5000`.
 
 ### Environment Variables
 
+Create a `.env` file (never commit it):
+
 ```env
-DATABASE_URL=postgresql://...    # PostgreSQL connection string
-SESSION_SECRET=...               # Session encryption key
+DATABASE_URL=postgresql://user:password@host/dbname
+SESSION_SECRET=a-long-random-secret-string
+PORT=5000
 ```
 
-## Contributing
+> **Important:** If `SESSION_SECRET` is not set, the server will start with an insecure fallback and log a warning. Always set this in production.
 
-This is a personal project, but suggestions and feedback are welcome!
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start the dev server (Express + Vite HMR) |
+| `npm run build` | Production build (Vite + esbuild) |
+| `npm start` | Serve the production build |
+| `npm test` | Run unit tests (Vitest) |
+| `npm run lint` | Check code with ESLint |
+| `npm run lint:fix` | Auto-fix ESLint issues |
+| `npm run format` | Format all files with Prettier |
+| `npm run check` | TypeScript type checking |
+| `npm run db:push` | Push schema changes to the database |
+
+## API Reference
+
+### Authentication
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/signup` | Create an account |
+| POST | `/api/auth/login` | Log in |
+| POST | `/api/auth/logout` | Log out |
+| GET  | `/api/auth/me` | Get current user |
+
+### Watchlist *(requires auth)*
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/watchlist` | Get watchlist tokens |
+| POST   | `/api/watchlist` | Add a token |
+| DELETE | `/api/watchlist/:id` | Remove a token |
+
+### Alerts *(requires auth)*
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/alerts` | Get alerts |
+| POST   | `/api/alerts` | Create an alert |
+| PATCH  | `/api/alerts/:id` | Update an alert |
+| DELETE | `/api/alerts/:id` | Delete an alert |
+
+### Webhooks
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/webhooks` | Get message history *(auth)* |
+| POST   | `/api/webhook` | Receive a webhook *(public)* |
+| PATCH  | `/api/webhooks/:id` | Bookmark a message *(auth)* |
+
+### Dashboard
+| Method | Path | Description |
+|--------|------|-------------|
+| GET  | `/api/dashboard-config` | Get saved layout *(auth)* |
+| POST | `/api/dashboard-config` | Save layout *(auth)* |
+
+### WebSocket
+Connect to `ws://localhost:5000/ws` (requires an authenticated session).
+
+**Client → Server messages:**
+```json
+{ "type": "subscribe",   "symbol": "BTCUSDT", "exchanges": ["Bybit", "OKX"] }
+{ "type": "unsubscribe", "symbol": "BTCUSDT" }
+```
+
+**Server → Client messages:**
+```json
+{ "type": "marketData",   "data": { ... } }
+{ "type": "orderBook",    "data": { ... } }
+{ "type": "systemStatus", "data": { ... } }
+{ "type": "webhook",      "data": { ... } }
+```
+
+## Project Structure
+
+```
+├── client/
+│   └── src/
+│       ├── components/         # UI widgets and shared sub-components
+│       │   ├── IndicatorCard.tsx
+│       │   ├── IndicatorConfigDialog.tsx
+│       │   ├── TabFormFields.tsx
+│       │   ├── ErrorBoundary.tsx
+│       │   └── ui/             # shadcn/ui base components
+│       ├── hooks/
+│       │   ├── useChartData.ts  # Chart history + real-time merge logic
+│       │   └── useTabSystem.ts
+│       ├── lib/
+│       │   ├── technicalIndicators.ts
+│       │   ├── marketAggregation.ts
+│       │   ├── useMarketWebSocket.ts
+│       │   └── *.test.ts        # Vitest unit tests
+│       ├── contexts/            # AuthContext, SymbolContext
+│       └── pages/               # Dashboard, Login, Landing
+├── server/
+│   ├── index.ts                 # App setup, session, Passport
+│   ├── routes.ts                # All API routes + WebSocket server
+│   ├── storage.ts               # IStorage interface, MemStorage, PostgresStorage
+│   ├── websocket-manager.ts     # Exchange WebSocket connections (Bybit, OKX)
+│   └── historical-data.ts       # Candle fetching
+├── shared/
+│   ├── schema.ts                # Drizzle ORM schema + Zod validators
+│   ├── types.ts                 # Shared WebSocket message types (MarketData, etc.)
+│   └── constants.ts             # SUPPORTED_EXCHANGES, SESSION_MAX_AGE_MS
+└── vitest.config.ts
+```
+
+## Database Schema
+
+```
+users              (id, username, password)
+watchlist_tokens   (id, user_id, symbol, exchanges, created_at)
+alerts             (id, user_id, type, symbol, exchanges, condition,
+                    value, keyword, triggered, last_triggered,
+                    trigger_count, max_triggers, created_at)
+webhook_messages   (id, user_id, source, message, payload, bookmarked, timestamp)
+dashboard_config   (id, user_id, layout, updated_at)
+```
+
+## Exchange Support
+
+| Exchange | Status | Notes |
+|----------|--------|-------|
+| Bybit | Active | Ticker + order book (delta/snapshot merge) |
+| OKX | Active | Ticker + order book (books5 snapshot) |
+| Binance | Disabled | Geo-blocked from some hosting providers (error 451) |
+
+## Storage Pattern
+
+The `IStorage` interface has two implementations selected at startup:
+
+- **`PostgresStorage`** — used when `DATABASE_URL` is set
+- **`MemStorage`** — in-memory fallback for local dev without a database
 
 ## License
 
-MIT License - feel free to use this project as a foundation for your own cryptocurrency dashboard.
-
----
-
-**Built with ❤️ using Replit**
+MIT — feel free to use this as a foundation for your own market dashboard.

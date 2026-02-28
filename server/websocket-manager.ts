@@ -1,29 +1,9 @@
 import WebSocket from "ws";
 import { EventEmitter } from "events";
+import type { MarketData, OrderBookData, SystemStatus } from "@shared/types";
+import { SUPPORTED_EXCHANGES } from "@shared/constants";
 
-export interface MarketData {
-  exchange: string;
-  symbol: string;
-  price: number;
-  volume24h: number;
-  priceChange24h: number;
-  timestamp: number;
-}
-
-export interface OrderBookData {
-  exchange: string;
-  symbol: string;
-  bids: Array<[number, number]>; // [price, size]
-  asks: Array<[number, number]>; // [price, size]
-  timestamp: number;
-}
-
-export interface SystemStatus {
-  exchange: string;
-  status: "connected" | "disconnected" | "reconnecting";
-  latency: number;
-  lastUpdate: number;
-}
+export type { MarketData, OrderBookData, SystemStatus };
 
 // Local order book state for Bybit (maintains full snapshot + applies deltas)
 interface OrderBookState {
@@ -65,14 +45,10 @@ export class ExchangeWebSocketManager extends EventEmitter {
   }
 
   subscribeToSymbol(symbol: string, exchanges: string[]) {
-    // Temporarily disable Binance due to 451 geo-blocking
-    // if (exchanges.includes("Binance")) {
-    //   this.connectBinance(symbol);
-    // }
-    if (exchanges.includes("Bybit")) {
+    if (exchanges.includes(SUPPORTED_EXCHANGES[0])) {
       this.connectBybit(symbol);
     }
-    if (exchanges.includes("OKX")) {
+    if (exchanges.includes(SUPPORTED_EXCHANGES[1])) {
       this.connectOKX(symbol);
     }
   }

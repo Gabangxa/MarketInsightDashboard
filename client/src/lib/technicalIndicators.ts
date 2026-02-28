@@ -18,14 +18,14 @@ export interface PriceData {
 export interface IndicatorValue {
   timestamp: number;
   value: number;
-  signal?: 'buy' | 'sell' | 'hold';
-  metadata?: Record<string, any>;
+  signal?: "buy" | "sell" | "hold";
+  metadata?: Record<string, number>;
 }
 
 export interface IndicatorResult {
   name: string;
   values: IndicatorValue[];
-  config: Record<string, any>;
+  config: Record<string, number>;
   lastValue?: IndicatorValue;
 }
 
@@ -357,7 +357,6 @@ export function calculateStochastic(data: PriceData[], kPeriod: number = 14, dPe
  * Average True Range (ATR) - Volatility Indicator
  */
 export function calculateATR(data: PriceData[], period: number = 14): IndicatorResult {
-  const values: IndicatorValue[] = [];
   const trueRanges: number[] = [];
   
   // Calculate True Range for each period
@@ -553,16 +552,19 @@ export function calculateWilliamsR(data: PriceData[], period: number = 14): Indi
 }
 
 /**
- * Utility function to convert market data to PriceData format
+ * Utility function to convert raw market data objects to PriceData format.
+ * Accepts any object with at least a `price` field and optional OHLCV fields.
  */
-export function convertToPriceData(marketDataArray: any[]): PriceData[] {
-  return marketDataArray.map(data => ({
-    timestamp: new Date(data.timestamp || Date.now()).getTime(),
-    open: parseFloat(data.open || data.price || 0),
-    high: parseFloat(data.high || data.price || 0),
-    low: parseFloat(data.low || data.price || 0),
-    close: parseFloat(data.close || data.price || 0),
-    volume: parseFloat(data.volume || 0)
+export function convertToPriceData(
+  marketDataArray: Array<Record<string, string | number | undefined>>
+): PriceData[] {
+  return marketDataArray.map((data) => ({
+    timestamp: new Date((data.timestamp as string | number) ?? Date.now()).getTime(),
+    open: parseFloat(String(data.open ?? data.price ?? 0)),
+    high: parseFloat(String(data.high ?? data.price ?? 0)),
+    low: parseFloat(String(data.low ?? data.price ?? 0)),
+    close: parseFloat(String(data.close ?? data.price ?? 0)),
+    volume: parseFloat(String(data.volume ?? 0)),
   }));
 }
 

@@ -14,6 +14,7 @@ import { LayoutGrid, LogOut, Loader2, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function Router({ activeView, onViewChange, isConnected }: { activeView: string; onViewChange: (view: string) => void; isConnected: boolean }) {
   return (
@@ -127,13 +128,17 @@ function AuthenticatedApp() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <AuthenticatedApp />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <ErrorBoundary>
+              <AuthenticatedApp />
+            </ErrorBoundary>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

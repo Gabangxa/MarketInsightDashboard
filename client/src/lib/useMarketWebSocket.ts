@@ -1,37 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import type {
+  MarketData,
+  OrderBookData,
+  SystemStatus,
+  WebhookMessage,
+  ServerMessage,
+  ClientMessage,
+} from "@shared/types";
 
-export interface MarketData {
-  exchange: string;
-  symbol: string;
-  price: number;
-  volume24h: number;
-  priceChange24h: number;
-  timestamp: number;
-}
-
-export interface OrderBookData {
-  exchange: string;
-  symbol: string;
-  bids: Array<[number, number]>;
-  asks: Array<[number, number]>;
-  timestamp: number;
-}
-
-export interface WebhookMessage {
-  id: string;
-  source: string;
-  message: string;
-  payload?: any;
-  bookmarked: boolean;
-  timestamp: Date;
-}
-
-export interface SystemStatus {
-  exchange: string;
-  status: "connected" | "disconnected" | "reconnecting";
-  latency: number;
-  lastUpdate: number;
-}
+export type { MarketData, OrderBookData, SystemStatus, WebhookMessage };
 
 interface UseMarketWebSocketReturn {
   marketData: Map<string, Map<string, MarketData>>; // symbol -> exchange -> data
@@ -70,21 +47,18 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
       
       // Re-subscribe to all symbols after reconnection
       subscriptionsRef.current.forEach((exchanges, symbol) => {
-        ws.send(JSON.stringify({
-          type: "subscribe",
-          symbol,
-          exchanges,
-        }));
+        const msg: ClientMessage = { type: "subscribe", symbol, exchanges };
+        ws.send(JSON.stringify(msg));
       });
     };
 
     ws.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data);
+        const message = JSON.parse(event.data as string) as ServerMessage;
 
         if (message.type === "marketData") {
-          const data: MarketData = message.data;
-          setMarketData(prev => {
+          const data = message.data;
+          setMarketData((prev) => {
             const newMap = new Map(prev);
             const symbolData = newMap.get(data.symbol) || new Map();
             symbolData.set(data.exchange, data);
@@ -92,24 +66,24 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
             return newMap;
           });
         } else if (message.type === "orderBook") {
-          const data: OrderBookData = message.data;
-          
+          const data = message.data;
+
           // Add to pending updates queue
           pendingOrderBookUpdatesRef.current.push(data);
-          
+
           // Start throttle interval if not already running
           if (!orderBookThrottleRef.current) {
             orderBookThrottleRef.current = setInterval(() => {
               const updates = pendingOrderBookUpdatesRef.current;
               if (updates.length === 0) return;
-              
+
               // Clear queue
               pendingOrderBookUpdatesRef.current = [];
-              
+
               // Apply all pending updates using functional setState
-              setOrderBooks(prev => {
+              setOrderBooks((prev) => {
                 const newMap = new Map(prev);
-                updates.forEach(update => {
+                updates.forEach((update) => {
                   const symbolData = newMap.get(update.symbol) || new Map();
                   symbolData.set(update.exchange, update);
                   newMap.set(update.symbol, symbolData);
@@ -119,11 +93,10 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
             }, 300);
           }
         } else if (message.type === "webhook") {
-          const data: WebhookMessage = message.data;
-          setNewWebhook(data);
+          setNewWebhook(message.data);
         } else if (message.type === "systemStatus") {
-          const data: SystemStatus = message.data;
-          setSystemStatus(prev => {
+          const data = message.data;
+          setSystemStatus((prev) => {
             const newMap = new Map(prev);
             newMap.set(data.exchange, data);
             return newMap;
@@ -172,26 +145,20 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   }, [connect]);
 
   const subscribe = useCallback((symbol: string, exchanges: string[]) => {
-    // Store subscription for reconnection
     subscriptionsRef.current.set(symbol, exchanges);
-    
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "subscribe",
-        symbol,
-        exchanges,
-      }));
+      const msg: ClientMessage = { type: "subscribe", symbol, exchanges };
+      wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
 
   const unsubscribe = useCallback((symbol: string) => {
     subscriptionsRef.current.delete(symbol);
-    
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "unsubscribe",
-        symbol,
-      }));
+      const msg: ClientMessage = { type: "unsubscribe", symbol };
+      wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
 

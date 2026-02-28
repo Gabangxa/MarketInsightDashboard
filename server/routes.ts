@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { wsManager, type MarketData, type OrderBookData, type SystemStatus } from "./websocket-manager";
+import type { ServerMessage, ClientMessage } from "@shared/types";
 import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema, insertUserSchema } from "@shared/schema";
 import { hash } from "bcryptjs";
 import passport from "passport";
@@ -14,6 +15,11 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   res.status(401).json({ error: "Unauthorized" });
+}
+
+/** Type-safe helper to extract the authenticated user's ID from a request. */
+function getUserId(req: Request): string {
+  return (req.user as { id: string }).id;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -47,20 +53,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        return res.status(500).json({ error: "Authentication failed" });
-      }
-      if (!user) {
-        return res.status(401).json({ error: info?.message || "Invalid credentials" });
-      }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ error: "Login failed" });
+    passport.authenticate(
+      "local",
+      (
+        err: Error | null,
+        user: { id: string; username: string } | false,
+        info: { message?: string } | undefined
+      ) => {
+        if (err) {
+          return res.status(500).json({ error: "Authentication failed" });
         }
-        res.json({ id: user.id, username: user.username });
-      });
-    })(req, res, next);
+        if (!user) {
+          return res
+            .status(401)
+            .json({ error: info?.message ?? "Invalid credentials" });
+        }
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            return res.status(500).json({ error: "Login failed" });
+          }
+          res.json({ id: user.id, username: user.username });
+        });
+      }
+    )(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -79,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", (req, res) => {
     if (req.isAuthenticated() && req.user) {
-      const user = req.user as any;
+      const user = req.user as { id: string; username: string };
       res.json({ id: user.id, username: user.username });
     } else {
       res.status(401).json({ error: "Not authenticated" });
@@ -98,13 +113,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    const req = request as any;
+    // Cast IncomingMessage to Express Request for session/passport middleware
+    const req = request as unknown as Request;
     const res = {
       setHeader: () => {},
       getHeader: () => {},
       end: () => {},
       writeHead: () => {},
-    } as any;
+    } as unknown as Response;
 
     // Parse session
     sessionParser(req, res, () => {
@@ -142,21 +158,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WebSocket server for client connections
-  wss.on("connection", (ws: WebSocket, req: any) => {
+  wss.on("connection", (ws: WebSocket, req: Request) => {
     clients.add(ws);
-    const userId = req.session?.passport?.user;
+    const session = (req as unknown as { session?: { passport?: { user?: string } } }).session;
+    const userId = session?.passport?.user;
     console.log(`Client connected to WebSocket (userId: ${userId})`);
 
-    ws.on("message", (message: string) => {
+    ws.on("message", (message: Buffer | string) => {
       try {
-        const data = JSON.parse(message.toString());
-        
+        const data = JSON.parse(message.toString()) as ClientMessage;
         if (data.type === "subscribe") {
-          const { symbol, exchanges } = data;
-          wsManager.subscribeToSymbol(symbol, exchanges);
+          wsManager.subscribeToSymbol(data.symbol, data.exchanges);
         } else if (data.type === "unsubscribe") {
-          const { symbol } = data;
-          wsManager.unsubscribeFromSymbol(symbol);
+          wsManager.unsubscribeFromSymbol(data.symbol);
         }
       } catch (error) {
         console.error("WebSocket message error:", error);
@@ -169,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  function broadcast(message: any) {
+  function broadcast(message: ServerMessage) {
     const data = JSON.stringify(message);
     clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
@@ -183,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook", async (req, res) => {
     try {
       const { source, message, ...payload } = req.body;
-      const userId = req.isAuthenticated() ? (req.user as any).id : "public";
+      const userId = req.isAuthenticated() ? getUserId(req) : "public";
       
       const validated = insertWebhookMessageSchema.parse({
         userId,
@@ -214,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Watchlist endpoints
   app.get("/api/watchlist", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const tokens = await storage.getWatchlistTokens(userId);
       res.json(tokens);
     } catch (error) {
@@ -224,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/watchlist", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const validated = insertWatchlistTokenSchema.parse(req.body);
       const token = await storage.createWatchlistToken({
         ...validated,
@@ -248,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Alert endpoints
   app.get("/api/alerts", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const alerts = await storage.getAlerts(userId);
       res.json(alerts);
     } catch (error) {
@@ -258,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/alerts", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       console.log("POST /api/alerts body:", JSON.stringify(req.body, null, 2));
       const validated = insertAlertSchema.parse(req.body);
       const alert = await storage.createAlert({
@@ -300,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Webhook messages endpoints
   app.get("/api/webhooks", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
       const messages = await storage.getWebhookMessages(userId, limit);
       res.json(messages);
@@ -321,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard config endpoints
   app.get("/api/dashboard-config", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const config = await storage.getDashboardConfig(userId);
       res.json(config);
     } catch (error) {
@@ -331,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/dashboard-config", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = getUserId(req);
       const config = await storage.saveDashboardConfig({
         userId,
         layout: req.body.layout,
