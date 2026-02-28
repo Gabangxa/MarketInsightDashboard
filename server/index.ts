@@ -7,6 +7,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import { compare, hash } from "bcryptjs";
+import { SESSION_MAX_AGE_MS } from "@shared/constants";
 
 const app = express();
 app.use(express.json());
@@ -28,16 +29,23 @@ if (sessionStore) {
   log("WARNING: Using in-memory session store (sessions will not persist across server restarts)");
 }
 
+const FALLBACK_SESSION_SECRET = "crypto-dashboard-secret-key-change-in-production";
+const sessionSecret = process.env.SESSION_SECRET ?? FALLBACK_SESSION_SECRET;
+
+if (!process.env.SESSION_SECRET) {
+  log("WARNING: SESSION_SECRET env var is not set. Using insecure fallback — set SESSION_SECRET before deploying to production.");
+}
+
 export const sessionParser = session({
   store: sessionStore,
-  secret: process.env.SESSION_SECRET || "crypto-dashboard-secret-key-change-in-production",
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    maxAge: SESSION_MAX_AGE_MS,
   },
 });
 
@@ -66,8 +74,8 @@ passport.use(
   })
 );
 
-passport.serializeUser((user: any, done) => {
-  done(null, user.id);
+passport.serializeUser((user, done) => {
+  done(null, (user as { id: string }).id);
 });
 
 passport.deserializeUser(async (id: string, done) => {
@@ -82,7 +90,7 @@ passport.deserializeUser(async (id: string, done) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -112,7 +120,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 

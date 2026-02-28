@@ -1,4 +1,4 @@
-import type { MarketData, OrderBookData } from "./useMarketWebSocket";
+import type { MarketData, OrderBookData } from "@shared/types";
 
 export interface AggregatedMarketData {
   symbol: string;

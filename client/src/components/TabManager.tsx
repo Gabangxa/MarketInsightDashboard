@@ -1,20 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import {
-  Plus,
-  X,
-  Edit3,
-  Save,
-  Settings,
-  Trash2,
-  GripVertical,
-  Eye,
-  EyeOff
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, X, Settings, Save, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,17 +21,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Layout } from 'react-grid-layout';
-import type { WidgetConfig } from './ResponsiveLayout';
+} from "@/components/ui/alert-dialog";
+import { Layout } from "react-grid-layout";
+import type { WidgetConfig } from "./ResponsiveLayout";
+import TabFormFields from "./TabFormFields";
 
 export interface TabConfig {
   id: string;
   name: string;
   description?: string;
-  widgets: string[]; // Widget IDs that are enabled for this tab
-  layout?: { [key: string]: Layout[] }; // Responsive layouts for this tab
+  widgets: string[];
+  layout?: { [key: string]: Layout[] };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,12 +41,15 @@ interface TabManagerProps {
   activeTabId: string;
   availableWidgets: WidgetConfig[];
   onTabChange: (tabId: string) => void;
-  onTabCreate: (tab: Omit<TabConfig, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onTabCreate: (tab: Omit<TabConfig, "id" | "createdAt" | "updatedAt">) => void;
   onTabUpdate: (tabId: string, updates: Partial<TabConfig>) => void;
   onTabDelete: (tabId: string) => void;
   onTabReorder: (tabs: TabConfig[]) => void;
   className?: string;
 }
+
+/** Blank form state */
+const EMPTY_FORM = { name: "", description: "", widgets: [] as string[] };
 
 export default function TabManager({
   tabs,
@@ -68,78 +59,63 @@ export default function TabManager({
   onTabCreate,
   onTabUpdate,
   onTabDelete,
-  onTabReorder,
-  className
+  className,
 }: TabManagerProps) {
   const [isAddingTab, setIsAddingTab] = useState(false);
+  const [newTab, setNewTab] = useState(EMPTY_FORM);
+
+  // Per-tab edit state (only one tab can be edited at a time via the manage dialog)
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
-  const [newTabName, setNewTabName] = useState('');
-  const [newTabDescription, setNewTabDescription] = useState('');
-  const [selectedWidgets, setSelectedWidgets] = useState<string[]>([]);
-  const [isManagingTab, setIsManagingTab] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(EMPTY_FORM);
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
-  // Handle new tab creation
   const handleCreateTab = () => {
-    if (!newTabName.trim()) return;
-    
+    if (!newTab.name.trim()) return;
     onTabCreate({
-      name: newTabName.trim(),
-      description: newTabDescription.trim() || undefined,
-      widgets: selectedWidgets,
-      layout: undefined
+      name: newTab.name.trim(),
+      description: newTab.description.trim() || undefined,
+      widgets: newTab.widgets,
+      layout: undefined,
     });
-
-    // Reset form
-    setNewTabName('');
-    setNewTabDescription('');
-    setSelectedWidgets([]);
+    setNewTab(EMPTY_FORM);
     setIsAddingTab(false);
   };
 
-  // Handle tab editing
   const handleUpdateTab = (tabId: string) => {
-    if (!newTabName.trim()) return;
-
+    if (!editForm.name.trim()) return;
     onTabUpdate(tabId, {
-      name: newTabName.trim(),
-      description: newTabDescription.trim() || undefined,
-      widgets: selectedWidgets,
-      updatedAt: new Date()
+      name: editForm.name.trim(),
+      description: editForm.description.trim() || undefined,
+      widgets: editForm.widgets,
+      updatedAt: new Date(),
     });
-
-    // Reset form
-    setNewTabName('');
-    setNewTabDescription('');
-    setSelectedWidgets([]);
     setEditingTabId(null);
+    setEditForm(EMPTY_FORM);
   };
 
-  // Start editing a tab
   const startEditing = (tab: TabConfig) => {
-    setNewTabName(tab.name);
-    setNewTabDescription(tab.description || '');
-    setSelectedWidgets([...tab.widgets]);
     setEditingTabId(tab.id);
+    setEditForm({
+      name: tab.name,
+      description: tab.description ?? "",
+      widgets: [...tab.widgets],
+    });
   };
 
-  // Handle widget selection change
-  const handleWidgetToggle = (widgetId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedWidgets(prev => [...prev, widgetId]);
-    } else {
-      setSelectedWidgets(prev => prev.filter(id => id !== widgetId));
-    }
+  const toggleWidget = (
+    form: typeof EMPTY_FORM,
+    setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_FORM>>,
+    widgetId: string,
+    checked: boolean
+  ) => {
+    setForm({
+      ...form,
+      widgets: checked
+        ? [...form.widgets, widgetId]
+        : form.widgets.filter((id) => id !== widgetId),
+    });
   };
-
-  // Widget categories for better organization
-  const widgetsByCategory = availableWidgets.reduce((acc, widget) => {
-    const category = widget.category || 'other';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(widget);
-    return acc;
-  }, {} as Record<string, WidgetConfig[]>);
 
   return (
     <div className={cn("border-b border-border", className)}>
@@ -165,13 +141,17 @@ export default function TabManager({
 
             {/* Tab Actions */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Dialog>
+              {/* Manage dialog */}
+              <Dialog
+                onOpenChange={(open) => {
+                  if (open) startEditing(tab);
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
-                    onClick={() => setIsManagingTab(tab.id)}
                     data-testid={`button-manage-tab-${tab.id}`}
                     aria-label={`Manage tab ${tab.name}`}
                   >
@@ -185,95 +165,36 @@ export default function TabManager({
                       Configure widgets and settings for this tab
                     </DialogDescription>
                   </DialogHeader>
-                  
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">Tab Name</label>
-                        <Input
-                          value={editingTabId === tab.id ? newTabName : tab.name}
-                          onChange={(e) => {
-                            if (editingTabId === tab.id) {
-                              setNewTabName(e.target.value);
-                            } else {
-                              startEditing(tab);
-                              setNewTabName(e.target.value);
-                            }
-                          }}
-                          placeholder="Enter tab name"
-                          data-testid="input-edit-tab-name"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Description</label>
-                        <Input
-                          value={editingTabId === tab.id ? newTabDescription : (tab.description || '')}
-                          onChange={(e) => {
-                            if (editingTabId === tab.id) {
-                              setNewTabDescription(e.target.value);
-                            } else {
-                              startEditing(tab);
-                              setNewTabDescription(e.target.value);
-                            }
-                          }}
-                          placeholder="Optional description"
-                          data-testid="input-edit-tab-description"
-                        />
-                      </div>
-                    </div>
 
-                    <div>
-                      <label className="text-sm font-medium mb-3 block">Select Widgets</label>
-                      <div className="space-y-4 max-h-60 overflow-y-auto">
-                        {Object.entries(widgetsByCategory).map(([category, widgets]) => (
-                          <div key={category}>
-                            <h4 className="text-sm font-medium capitalize text-muted-foreground mb-2">
-                              {category}
-                            </h4>
-                            <div className="space-y-2 pl-4">
-                              {widgets.map((widget) => {
-                                const isSelected = editingTabId === tab.id 
-                                  ? selectedWidgets.includes(widget.id)
-                                  : tab.widgets.includes(widget.id);
-                                
-                                return (
-                                  <div key={widget.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`widget-${widget.id}`}
-                                      checked={isSelected}
-                                      onCheckedChange={(checked) => {
-                                        if (editingTabId !== tab.id) {
-                                          startEditing(tab);
-                                        }
-                                        handleWidgetToggle(widget.id, checked as boolean);
-                                      }}
-                                      data-testid={`checkbox-widget-${widget.id}`}
-                                    />
-                                    <label
-                                      htmlFor={`widget-${widget.id}`}
-                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                      {widget.title}
-                                    </label>
-                                    <Badge 
-                                      variant="outline" 
-                                      className="text-xs"
-                                    >
-                                      {widget.priority}
-                                    </Badge>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  <div className="space-y-4">
+                    {editingTabId === tab.id && (
+                      <TabFormFields
+                        name={editForm.name}
+                        description={editForm.description}
+                        selectedWidgets={editForm.widgets}
+                        availableWidgets={availableWidgets}
+                        idPrefix={`edit-${tab.id}-`}
+                        onNameChange={(v) =>
+                          setEditForm((f) => ({ ...f, name: v }))
+                        }
+                        onDescriptionChange={(v) =>
+                          setEditForm((f) => ({ ...f, description: v }))
+                        }
+                        onWidgetToggle={(id, checked) =>
+                          toggleWidget(editForm, setEditForm, id, checked)
+                        }
+                      />
+                    )}
 
                     <div className="flex justify-between">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm" className="gap-2" data-testid="button-delete-tab-dialog">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-2"
+                            data-testid="button-delete-tab-dialog"
+                          >
                             <Trash2 className="h-4 w-4" />
                             Delete Tab
                           </Button>
@@ -282,11 +203,14 @@ export default function TabManager({
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Tab</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "{tab.name}"? This action cannot be undone.
+                              Are you sure you want to delete "{tab.name}"?
+                              This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                            <AlertDialogCancel data-testid="button-cancel-delete">
+                              Cancel
+                            </AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => onTabDelete(tab.id)}
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -312,6 +236,7 @@ export default function TabManager({
                 </DialogContent>
               </Dialog>
 
+              {/* Quick delete button (visible when > 1 tab) */}
               {tabs.length > 1 && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -329,7 +254,8 @@ export default function TabManager({
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete Tab</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to delete "{tab.name}"? This action cannot be undone.
+                        Are you sure you want to delete "{tab.name}"? This
+                        action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -351,7 +277,12 @@ export default function TabManager({
         {/* Add New Tab */}
         <Dialog open={isAddingTab} onOpenChange={setIsAddingTab}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 flex-shrink-0" data-testid="button-add-tab">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 flex-shrink-0"
+              data-testid="button-add-tab"
+            >
               <Plus className="h-4 w-4" />
               Add Tab
             </Button>
@@ -363,77 +294,34 @@ export default function TabManager({
                 Set up a new tab with your preferred widgets
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Tab Name *</label>
-                  <Input
-                    value={newTabName}
-                    onChange={(e) => setNewTabName(e.target.value)}
-                    placeholder="Enter tab name"
-                    autoFocus
-                    data-testid="input-new-tab-name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Description</label>
-                  <Input
-                    value={newTabDescription}
-                    onChange={(e) => setNewTabDescription(e.target.value)}
-                    placeholder="Optional description"
-                    data-testid="input-new-tab-description"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="text-sm font-medium mb-3 block">Select Widgets</label>
-                <div className="space-y-4 max-h-60 overflow-y-auto">
-                  {Object.entries(widgetsByCategory).map(([category, widgets]) => (
-                    <div key={category}>
-                      <h4 className="text-sm font-medium capitalize text-muted-foreground mb-2">
-                        {category}
-                      </h4>
-                      <div className="space-y-2 pl-4">
-                        {widgets.map((widget) => (
-                          <div key={widget.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`new-widget-${widget.id}`}
-                              checked={selectedWidgets.includes(widget.id)}
-                              onCheckedChange={(checked) => 
-                                handleWidgetToggle(widget.id, checked as boolean)
-                              }
-                              data-testid={`checkbox-new-widget-${widget.id}`}
-                            />
-                            <label
-                              htmlFor={`new-widget-${widget.id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {widget.title}
-                            </label>
-                            <Badge variant="outline" className="text-xs">
-                              {widget.priority}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="space-y-4">
+              <TabFormFields
+                name={newTab.name}
+                description={newTab.description}
+                selectedWidgets={newTab.widgets}
+                availableWidgets={availableWidgets}
+                idPrefix="new-"
+                onNameChange={(v) => setNewTab((f) => ({ ...f, name: v }))}
+                onDescriptionChange={(v) =>
+                  setNewTab((f) => ({ ...f, description: v }))
+                }
+                onWidgetToggle={(id, checked) =>
+                  toggleWidget(newTab, setNewTab, id, checked)
+                }
+              />
 
               <div className="flex justify-end gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsAddingTab(false)}
                   data-testid="button-cancel-new-tab"
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleCreateTab}
-                  disabled={!newTabName.trim()}
+                  disabled={!newTab.name.trim()}
                   className="gap-2"
                   data-testid="button-create-tab"
                 >
@@ -453,7 +341,9 @@ export default function TabManager({
             <div className="flex items-center gap-3">
               <span className="font-medium">{activeTab.name}</span>
               {activeTab.description && (
-                <span className="text-muted-foreground">{activeTab.description}</span>
+                <span className="text-muted-foreground">
+                  {activeTab.description}
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
