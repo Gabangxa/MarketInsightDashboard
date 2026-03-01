@@ -9,6 +9,7 @@ import {
   Monitor,
   RotateCcw,
   Wand2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import "react-grid-layout/css/styles.css";
@@ -31,6 +32,7 @@ interface ResponsiveLayoutProps {
   initialLayout?: { [key: string]: Layout[] };
   onLayoutChange?: (layouts: { [key: string]: Layout[] }) => void;
   onSaveLayout?: () => void;
+  onRemoveWidget?: (widgetId: string) => void;
   className?: string;
   isEditable?: boolean;
   tabId?: string;
@@ -212,6 +214,7 @@ export default function ResponsiveLayout({
   initialLayout,
   onLayoutChange,
   onSaveLayout,
+  onRemoveWidget,
   className,
   isEditable = false,
   tabId,
@@ -343,8 +346,18 @@ export default function ResponsiveLayout({
           compactType="vertical"
         >
           {visibleWidgets.map((widget) => (
-            <div key={widget.id} className="h-full">
+            <div key={widget.id} className="h-full relative group/widget">
               {widget.component}
+              {isEditable && onRemoveWidget && (
+                <button
+                  onClick={() => onRemoveWidget(widget.id)}
+                  className="absolute top-2 right-2 z-20 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/widget:opacity-100 transition-opacity shadow-md"
+                  title={`Remove ${widget.title}`}
+                  data-testid={`button-remove-widget-${widget.id}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           ))}
         </ResponsiveGridLayout>

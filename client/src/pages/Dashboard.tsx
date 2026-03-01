@@ -184,6 +184,7 @@ function DashboardContent() {
     reorderTabs,
     saveLayout,
     addWidgetsToActiveTab,
+    removeWidgetFromActiveTab,
     exportTabs,
     importTabs,
     resetTabs
@@ -336,6 +337,7 @@ function DashboardContent() {
               });
               setIsLayoutEditable(false);
             }}
+            onRemoveWidget={removeWidgetFromActiveTab}
           />
         </div>
       </div>

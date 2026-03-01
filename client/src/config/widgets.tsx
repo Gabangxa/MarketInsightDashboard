@@ -1,7 +1,7 @@
 import type { WidgetConfig } from "@/components/ResponsiveLayout";
 import WatchlistWidget from "@/components/WatchlistWidget";
 import MarketDataWidget from "@/components/MarketDataWidget";
-import OrderBookWidget, { type OrderBookEntry } from "@/components/OrderBookWidget";
+import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
 import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
 import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
@@ -10,7 +10,6 @@ import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
 import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
 import FundingRateWidget from "@/components/FundingRateWidget";
-import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
 import type { FundingRateData } from "@/lib/useMarketWebSocket";
 

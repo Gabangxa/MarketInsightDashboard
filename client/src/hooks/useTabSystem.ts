@@ -265,13 +265,31 @@ export function useTabSystem(availableWidgets: WidgetConfig[]) {
   // Add widgets to active tab
   const addWidgetsToActiveTab = useCallback((widgetIds: string[]) => {
     if (!activeTab) return;
-    
+
     // Merge new widget IDs with existing ones, ensuring uniqueness
     const updatedWidgets = Array.from(new Set([...activeTab.widgets, ...widgetIds]));
-    
+
     updateTab(activeTab.id, {
       widgets: updatedWidgets,
       updatedAt: new Date()
+    });
+  }, [activeTab, updateTab]);
+
+  // Remove a single widget from the active tab (and its saved layout entries)
+  const removeWidgetFromActiveTab = useCallback((widgetId: string) => {
+    if (!activeTab) return;
+    const updatedWidgets = activeTab.widgets.filter(id => id !== widgetId);
+    const updatedLayout = activeTab.layout
+      ? Object.fromEntries(
+          Object.entries(activeTab.layout).map(([bp, items]) => [
+            bp,
+            items.filter((l) => l.i !== widgetId),
+          ])
+        )
+      : undefined;
+    updateTab(activeTab.id, {
+      widgets: updatedWidgets,
+      ...(updatedLayout && { layout: updatedLayout }),
     });
   }, [activeTab, updateTab]);
 
@@ -290,7 +308,8 @@ export function useTabSystem(availableWidgets: WidgetConfig[]) {
     reorderTabs,
     saveLayout,
     addWidgetsToActiveTab,
-    
+    removeWidgetFromActiveTab,
+
     // Import/Export
     exportTabs,
     importTabs,
