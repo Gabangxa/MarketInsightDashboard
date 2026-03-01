@@ -11,7 +11,6 @@ import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget"
 import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
 import FundingRateWidget from "@/components/FundingRateWidget";
 import type { Alert, WebhookMessage } from "@shared/schema";
-import type { FundingRateData } from "@/lib/useMarketWebSocket";
 
 interface WidgetFactoryParams {
   // Real-time data
@@ -35,10 +34,6 @@ interface WidgetFactoryParams {
   // Technical indicators widget
   technicalIndicatorExchanges: string[];
 
-  // Funding rates
-  fundingRates: Map<string, Map<string, FundingRateData>>;
-  subscribe: (symbol: string, exchanges: string[]) => void;
-  unsubscribe: (symbol: string) => void;
 }
 
 export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfig[] {
@@ -175,11 +170,7 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       priority: "high",
       defaultSize: { w: 4, h: 4, minW: 3, minH: 3 },
       component: (
-        <FundingRateWidget
-          fundingRates={params.fundingRates}
-          subscribe={params.subscribe}
-          unsubscribe={params.unsubscribe}
-        />
+        <FundingRateWidget />
       )
     }
   ];

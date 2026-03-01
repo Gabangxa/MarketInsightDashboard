@@ -38,7 +38,7 @@ function DashboardContent() {
   const { toast } = useToast();
 
   // WebSocket connection
-  const { marketData, orderBooks, newWebhook, fundingRates, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
+  const { marketData, orderBooks, newWebhook, isConnected, subscribe, unsubscribe } = useMarketWebSocket();
 
   // Fetch data for coordination (WebSocket subscriptions, alert monitoring)
   // These queries are shared with widgets (React Query deduplicates automatically)
@@ -165,13 +165,9 @@ function DashboardContent() {
       setIsAlertPanelOpen(true);
     },
     technicalIndicatorExchanges,
-    fundingRates,
-    subscribe,
-    unsubscribe,
   }), [
     marketData, orderBooks, selectedExchanges, orderBookViewMode,
-    webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges, fundingRates,
-    subscribe, unsubscribe,
+    webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges,
   ]);
 
   // Initialize tab system

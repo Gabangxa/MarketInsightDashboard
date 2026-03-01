@@ -159,6 +159,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  app.get("/api/funding-rates", async (req, res) => {
+    const symbolsParam = req.query.symbols as string | undefined;
+    if (!symbolsParam) return res.json([]);
+    const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+    try {
+      const results = await Promise.all(
+        symbols.map(async (symbol) => {
+          const url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`;
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          const json = await response.json() as {
+            result?: { list?: Array<{
+              symbol: string;
+              markPrice: string;
+              fundingRate: string;
+              nextFundingTime: string;
+            }> };
+          };
+          const item = json?.result?.list?.[0];
+          if (!item) return null;
+          const fundingRate = parseFloat(item.fundingRate);
+          if (isNaN(fundingRate)) return null;
+          return {
+            exchange: "Bybit",
+            symbol: item.symbol,
+            fundingRate,
+            fundingRatePercent: fundingRate * 100,
+            nextFundingTime: parseInt(item.nextFundingTime, 10),
+            markPrice: parseFloat(item.markPrice),
+            timestamp: Date.now(),
+          };
+        })
+      );
+      res.json(results.filter(Boolean));
+    } catch (error) {
+      console.error("Funding rates fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch funding rates" });
+    }
+  });
+
   app.post("/api/webhook", async (req, res) => {
     try {
       const { source, message, ...payload } = req.body;
