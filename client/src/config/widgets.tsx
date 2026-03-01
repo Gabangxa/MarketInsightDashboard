@@ -9,8 +9,10 @@ import CorrelationMatrixWidget from "@/components/CorrelationMatrixWidget";
 import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
 import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
+import FundingRateWidget from "@/components/FundingRateWidget";
 import type { AggregatedOrderBook } from "@/lib/marketAggregation";
 import type { Alert, WebhookMessage } from "@shared/schema";
+import type { FundingRateData } from "@/lib/useMarketWebSocket";
 
 interface WidgetFactoryParams {
   // Real-time data
@@ -33,6 +35,9 @@ interface WidgetFactoryParams {
   
   // Technical indicators widget
   technicalIndicatorExchanges: string[];
+
+  // Funding rates
+  fundingRates: Map<string, Map<string, FundingRateData>>;
 }
 
 export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfig[] {
@@ -159,6 +164,18 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       component: (
         <StochasticOscillatorWidget
           exchanges={params.technicalIndicatorExchanges}
+        />
+      )
+    },
+    {
+      id: "funding-rate-1",
+      title: "Funding Rates",
+      category: "trading",
+      priority: "high",
+      defaultSize: { w: 4, h: 4, minW: 3, minH: 3 },
+      component: (
+        <FundingRateWidget
+          fundingRates={params.fundingRates}
         />
       )
     }

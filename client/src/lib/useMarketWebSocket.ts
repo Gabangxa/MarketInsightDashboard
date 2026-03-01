@@ -4,17 +4,19 @@ import type {
   OrderBookData,
   SystemStatus,
   WebhookMessage,
+  FundingRateData,
   ServerMessage,
   ClientMessage,
 } from "@shared/types";
 
-export type { MarketData, OrderBookData, SystemStatus, WebhookMessage };
+export type { MarketData, OrderBookData, SystemStatus, WebhookMessage, FundingRateData };
 
 interface UseMarketWebSocketReturn {
   marketData: Map<string, Map<string, MarketData>>; // symbol -> exchange -> data
   orderBooks: Map<string, Map<string, OrderBookData>>; // symbol -> exchange -> data
   systemStatus: Map<string, SystemStatus>; // exchange -> status
   newWebhook: WebhookMessage | null;
+  fundingRates: Map<string, Map<string, FundingRateData>>; // symbol -> exchange -> data
   isConnected: boolean;
   subscribe: (symbol: string, exchanges: string[]) => void;
   unsubscribe: (symbol: string) => void;
@@ -26,6 +28,7 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
   const [orderBooks, setOrderBooks] = useState<Map<string, Map<string, OrderBookData>>>(new Map());
   const [systemStatus, setSystemStatus] = useState<Map<string, SystemStatus>>(new Map());
   const [newWebhook, setNewWebhook] = useState<WebhookMessage | null>(null);
+  const [fundingRates, setFundingRates] = useState<Map<string, Map<string, FundingRateData>>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const subscriptionsRef = useRef<Map<string, string[]>>(new Map());
@@ -82,6 +85,15 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
           }
         } else if (message.type === "webhook") {
           setNewWebhook(message.data);
+        } else if (message.type === "fundingRate") {
+          const d = message.data;
+          setFundingRates((prev) => {
+            const next = new Map(prev);
+            const sym = next.get(d.symbol) ?? new Map<string, FundingRateData>();
+            sym.set(d.exchange, d);
+            next.set(d.symbol, new Map(sym));
+            return next;
+          });
         } else if (message.type === "systemStatus") {
           const data = message.data;
           setSystemStatus((prev) => {
@@ -142,6 +154,7 @@ export function useMarketWebSocket(): UseMarketWebSocketReturn {
     orderBooks,
     systemStatus,
     newWebhook,
+    fundingRates,
     isConnected,
     subscribe,
     unsubscribe,

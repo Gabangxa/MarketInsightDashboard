@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { wsManager, type MarketData, type OrderBookData, type SystemStatus } from "./websocket-manager";
-import type { ServerMessage, ClientMessage } from "@shared/types";
+import { fundingRateManager } from "./funding-rate-manager";
+import type { ServerMessage, ClientMessage, FundingRateData } from "@shared/types";
 import { insertWebhookMessageSchema, insertWatchlistTokenSchema, insertAlertSchema, insertUserSchema } from "@shared/schema";
 import { hash } from "bcryptjs";
 import passport from "passport";
@@ -118,6 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   wsManager.on("orderBook", (data: OrderBookData) => {
     broadcast({ type: "orderBook", data });
+  });
+
+  fundingRateManager.on("fundingRate", (data: FundingRateData) => {
+    broadcast({ type: "fundingRate", data });
   });
 
   wss.on("connection", (ws: WebSocket, req: Request) => {

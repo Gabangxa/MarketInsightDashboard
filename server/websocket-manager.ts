@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { EventEmitter } from "events";
 import type { MarketData, OrderBookData, SystemStatus } from "@shared/types";
 import { SUPPORTED_EXCHANGES } from "@shared/constants";
+import { fundingRateManager } from "./funding-rate-manager";
 
 export type { MarketData, OrderBookData, SystemStatus };
 
@@ -29,6 +30,7 @@ export class ExchangeWebSocketManager extends EventEmitter {
     if (exchanges.includes(SUPPORTED_EXCHANGES[1])) {
       this.connectOKX(symbol);
     }
+    fundingRateManager.subscribeToSymbol(symbol);
   }
 
   unsubscribeFromSymbol(symbol: string) {
@@ -65,6 +67,8 @@ export class ExchangeWebSocketManager extends EventEmitter {
         this.reconnectTimeouts.delete(key);
       }
     });
+
+    fundingRateManager.unsubscribeFromSymbol(symbol);
   }
 
   private connectBinance(symbol: string) {
