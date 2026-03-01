@@ -12,6 +12,7 @@ import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
 import StochasticOscillatorWidget from "@/components/StochasticOscillatorWidget";
 import FundingRateWidget from "@/components/FundingRateWidget";
+import StrengthWidget from "@/components/StrengthWidget";
 import type { Alert, WebhookMessage } from "@shared/schema";
 
 interface WidgetFactoryParams {
@@ -181,6 +182,16 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
         <StochasticOscillatorWidget
           exchanges={params.technicalIndicatorExchanges}
         />
+      )
+    },
+    {
+      id: "strength-1",
+      title: "Trend Strength",
+      category: "analytics",
+      priority: "medium",
+      defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },
+      component: (
+        <StrengthWidget exchanges={params.technicalIndicatorExchanges} />
       )
     },
     {

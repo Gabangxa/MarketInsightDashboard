@@ -552,6 +552,262 @@ export function calculateWilliamsR(data: PriceData[], period: number = 14): Indi
 }
 
 /**
+ * Parabolic SAR (Stop and Reverse)
+ * Trend-following indicator that provides dynamic support/resistance levels.
+ */
+export function calculateParabolicSAR(
+  data: PriceData[],
+  step: number = 0.02,
+  maxAF: number = 0.2
+): IndicatorResult {
+  const values: IndicatorValue[] = [];
+  if (data.length < 2) return { name: "PSAR", values: [], config: { step, maxAF } };
+
+  let isBullish = true;
+  let af = step;
+  let ep = data[0].high; // Extreme point
+  let sar = data[0].low; // Starting SAR
+
+  for (let i = 1; i < data.length; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+
+    let newSar = sar + af * (ep - sar);
+
+    if (isBullish) {
+      // SAR cannot be above the previous two lows
+      newSar = i >= 2 ? Math.min(newSar, prev.low, data[i - 2].low) : Math.min(newSar, prev.low);
+
+      if (curr.low < newSar) {
+        // Flip to bearish
+        isBullish = false;
+        newSar = ep;
+        ep = curr.low;
+        af = step;
+      } else if (curr.high > ep) {
+        ep = curr.high;
+        af = Math.min(af + step, maxAF);
+      }
+    } else {
+      // SAR cannot be below the previous two highs
+      newSar = i >= 2 ? Math.max(newSar, prev.high, data[i - 2].high) : Math.max(newSar, prev.high);
+
+      if (curr.high > newSar) {
+        // Flip to bullish
+        isBullish = true;
+        newSar = ep;
+        ep = curr.high;
+        af = step;
+      } else if (curr.low < ep) {
+        ep = curr.low;
+        af = Math.min(af + step, maxAF);
+      }
+    }
+
+    sar = newSar;
+    const signal: "buy" | "sell" | "hold" = isBullish ? "buy" : "sell";
+
+    values.push({
+      timestamp: curr.timestamp,
+      value: sar,
+      signal,
+      metadata: { direction: isBullish ? 1 : -1, ep, af },
+    });
+  }
+
+  return {
+    name: "PSAR",
+    values,
+    config: { step, maxAF },
+    lastValue: values[values.length - 1],
+  };
+}
+
+/**
+ * Rate of Change (ROC)
+ * Measures the percentage change between the current price and the price n periods ago.
+ */
+export function calculateROC(data: PriceData[], period: number = 14): IndicatorResult {
+  const values: IndicatorValue[] = [];
+
+  for (let i = period; i < data.length; i++) {
+    const prevClose = data[i - period].close;
+    if (prevClose === 0) continue;
+
+    const roc = ((data[i].close - prevClose) / prevClose) * 100;
+
+    let signal: "buy" | "sell" | "hold" = "hold";
+    if (roc > 5) signal = "buy";
+    else if (roc < -5) signal = "sell";
+
+    values.push({
+      timestamp: data[i].timestamp,
+      value: roc,
+      signal,
+      metadata: { previousClose: prevClose },
+    });
+  }
+
+  return {
+    name: `ROC(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1],
+  };
+}
+
+/**
+ * Money Flow Index (MFI)
+ * Volume-weighted oscillator measuring buying and selling pressure. Range: 0–100.
+ */
+export function calculateMFI(data: PriceData[], period: number = 14): IndicatorResult {
+  if (data.length < period + 1) return { name: `MFI(${period})`, values: [], config: { period } };
+
+  const typicalPrices = data.map(d => (d.high + d.low + d.close) / 3);
+  const moneyFlows = data.map((d, i) => typicalPrices[i] * (d.volume ?? 1));
+
+  const values: IndicatorValue[] = [];
+
+  for (let i = period; i < data.length; i++) {
+    let positiveMF = 0;
+    let negativeMF = 0;
+
+    for (let j = i - period + 1; j <= i; j++) {
+      if (typicalPrices[j] > typicalPrices[j - 1]) positiveMF += moneyFlows[j];
+      else if (typicalPrices[j] < typicalPrices[j - 1]) negativeMF += moneyFlows[j];
+    }
+
+    const mfi = negativeMF === 0 ? 100 : 100 - 100 / (1 + positiveMF / negativeMF);
+
+    let signal: "buy" | "sell" | "hold" = "hold";
+    if (mfi < 20) signal = "buy";
+    else if (mfi > 80) signal = "sell";
+
+    values.push({
+      timestamp: data[i].timestamp,
+      value: mfi,
+      signal,
+      metadata: { positiveMF, negativeMF },
+    });
+  }
+
+  return {
+    name: `MFI(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1],
+  };
+}
+
+/**
+ * Chaikin Volatility
+ * Measures the rate of change of the EMA of (High − Low). Positive = expanding, negative = contracting.
+ */
+export function calculateChaikinVolatility(data: PriceData[], period: number = 10): IndicatorResult {
+  if (data.length < 2 * period) return { name: `ChaikinVol(${period})`, values: [], config: { period } };
+
+  // EMA of High − Low
+  const hl = data.map(d => d.high - d.low);
+  const multiplier = 2 / (period + 1);
+  const emaValues: number[] = [];
+  let ema = hl.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  emaValues.push(ema);
+  for (let i = period; i < hl.length; i++) {
+    ema = hl[i] * multiplier + ema * (1 - multiplier);
+    emaValues.push(ema);
+  }
+
+  // ChaikinVol[i] = ((EMA[i] - EMA[i - period]) / EMA[i - period]) * 100
+  // emaValues[j] corresponds to data[period - 1 + j]
+  const values: IndicatorValue[] = [];
+  for (let i = period; i < emaValues.length; i++) {
+    const prev = emaValues[i - period];
+    if (prev === 0) continue;
+    const chVol = ((emaValues[i] - prev) / prev) * 100;
+    const dataIdx = period - 1 + i;
+
+    values.push({
+      timestamp: data[dataIdx].timestamp,
+      value: chVol,
+      signal: "hold",
+      metadata: { ema: emaValues[i], prevEma: prev },
+    });
+  }
+
+  return {
+    name: `ChaikinVol(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1],
+  };
+}
+
+/**
+ * Average Directional Index (ADX)
+ * Measures trend strength (0–100) with +DI and −DI directional lines.
+ */
+export function calculateADX(data: PriceData[], period: number = 14): IndicatorResult {
+  if (data.length < 2 * period + 1) return { name: `ADX(${period})`, values: [], config: { period } };
+
+  const plusDMs: number[] = [];
+  const minusDMs: number[] = [];
+  const trs: number[] = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const curr = data[i];
+    const prev = data[i - 1];
+    const upMove = curr.high - prev.high;
+    const downMove = prev.low - curr.low;
+    plusDMs.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDMs.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    trs.push(Math.max(curr.high - curr.low, Math.abs(curr.high - prev.close), Math.abs(curr.low - prev.close)));
+  }
+
+  const smoothedPlus = calculateRMA(plusDMs, period);
+  const smoothedMinus = calculateRMA(minusDMs, period);
+  const atrSmoothed = calculateRMA(trs, period);
+
+  // DX from smoothed arrays (all same length)
+  const dxValues: number[] = smoothedPlus.map((_, i) => {
+    const atr = atrSmoothed[i];
+    if (atr === 0) return 0;
+    const pdi = (smoothedPlus[i] / atr) * 100;
+    const mdi = (smoothedMinus[i] / atr) * 100;
+    const sum = pdi + mdi;
+    return sum === 0 ? 0 : (Math.abs(pdi - mdi) / sum) * 100;
+  });
+
+  const adxSmoothed = calculateRMA(dxValues, period);
+
+  // Alignment: trs/DMs start at data[1]; smoothed[j] → data[j + period];
+  // dxValues[j] → data[j + period]; adxSmoothed[i] → dxValues[i + period - 1] → data[i + 2*period - 1]
+  const values: IndicatorValue[] = adxSmoothed.map((adx, i) => {
+    const dxIdx = i + period - 1;
+    const dataIdx = i + 2 * period - 1;
+    const atr = atrSmoothed[dxIdx];
+    const plusDI = atr === 0 ? 0 : (smoothedPlus[dxIdx] / atr) * 100;
+    const minusDI = atr === 0 ? 0 : (smoothedMinus[dxIdx] / atr) * 100;
+
+    let signal: "buy" | "sell" | "hold" = "hold";
+    if (adx > 25) signal = plusDI > minusDI ? "buy" : "sell";
+
+    return {
+      timestamp: data[dataIdx].timestamp,
+      value: adx,
+      signal,
+      metadata: { adx, plusDI, minusDI },
+    };
+  });
+
+  return {
+    name: `ADX(${period})`,
+    values,
+    config: { period },
+    lastValue: values[values.length - 1],
+  };
+}
+
+/**
  * Utility function to convert raw market data objects to PriceData format.
  * Accepts any object with at least a `price` field and optional OHLCV fields.
  */
@@ -581,11 +837,16 @@ export function calculateAllIndicators(data: PriceData[]): Record<string, Indica
     sma50: calculateSMA(data, 50),
     ema12: calculateEMA(data, 12),
     ema26: calculateEMA(data, 26),
+    parabolicSar: calculateParabolicSAR(data),
     rsi: calculateRSI(data, 14),
     macd: calculateMACD(data, 12, 26, 9),
-    bollingerBands: calculateBollingerBands(data, 20, 2),
     stochastic: calculateStochastic(data, 14, 3),
+    roc: calculateROC(data, 14),
+    mfi: calculateMFI(data, 14),
+    williamsR: calculateWilliamsR(data, 14),
+    bollingerBands: calculateBollingerBands(data, 20, 2),
     atr: calculateATR(data, 14),
-    williamsR: calculateWilliamsR(data, 14)
+    chaikinVolatility: calculateChaikinVolatility(data),
+    adx: calculateADX(data, 14),
   };
 }

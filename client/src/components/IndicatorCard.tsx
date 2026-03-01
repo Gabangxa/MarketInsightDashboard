@@ -38,10 +38,14 @@ function formatValue(indicator: IndicatorResult): string {
   if (
     indicator.name.includes("RSI") ||
     indicator.name.includes("Stoch") ||
-    indicator.name.includes("Williams")
+    indicator.name.includes("Williams") ||
+    indicator.name.includes("MFI") ||
+    indicator.name.includes("ADX")
   )
     return value.toFixed(1);
   if (indicator.name.includes("MACD")) return value.toFixed(4);
+  if (indicator.name.includes("ROC") || indicator.name.includes("ChaikinVol"))
+    return value.toFixed(2) + "%";
   return value.toFixed(2);
 }
 
@@ -70,6 +74,32 @@ function getDescription(indicator: IndicatorResult): string {
     if (value <= 20) return "Oversold - potential upward reversal";
     if (value >= 80) return "Overbought - potential downward reversal";
     return "Neutral oscillator reading";
+  }
+  if (indicator.name.includes("PSAR")) {
+    const direction = metadata?.direction ?? 0;
+    return direction > 0 ? "Bullish — price above SAR" : "Bearish — price below SAR";
+  }
+  if (indicator.name.includes("ROC")) {
+    if (value > 5) return "Positive momentum accelerating";
+    if (value < -5) return "Negative momentum accelerating";
+    return value >= 0 ? "Slight positive momentum" : "Slight negative momentum";
+  }
+  if (indicator.name.includes("MFI")) {
+    if (value < 20) return "Oversold — buying pressure may be exhausted";
+    if (value > 80) return "Overbought — selling pressure may be exhausted";
+    return "Neutral money flow";
+  }
+  if (indicator.name.includes("ChaikinVol")) {
+    if (value > 0) return "Volatility expanding";
+    if (value < 0) return "Volatility contracting";
+    return "Volatility unchanged";
+  }
+  if (indicator.name.includes("ADX")) {
+    const adx = metadata?.adx ?? value;
+    if (adx < 25) return "Weak / No Trend";
+    if (adx < 50) return "Moderate Trend";
+    if (adx < 75) return "Strong Trend";
+    return "Very Strong Trend";
   }
   return `Current value: ${formatValue(indicator)}`;
 }
@@ -184,6 +214,41 @@ export default function IndicatorCard({
             <span className="text-muted-foreground">Lower:</span>
             <div className="font-mono">
               {indicator.lastValue.metadata.lowerBand?.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MFI Progress Bar */}
+      {indicatorId === "mfi" && indicator.lastValue && (
+        <div className="mt-2">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Oversold (20)</span>
+            <span>Overbought (80)</span>
+          </div>
+          <Progress value={indicator.lastValue.value} className="h-2" />
+        </div>
+      )}
+
+      {/* ADX Details */}
+      {indicatorId === "adx" && indicator.lastValue?.metadata && (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <span className="text-muted-foreground">ADX:</span>
+            <div className="font-mono">
+              {indicator.lastValue.metadata.adx?.toFixed(1)}
+            </div>
+          </div>
+          <div>
+            <span className="text-muted-foreground">+DI:</span>
+            <div className={cn("font-mono", "text-positive")}>
+              {indicator.lastValue.metadata.plusDI?.toFixed(1)}
+            </div>
+          </div>
+          <div>
+            <span className="text-muted-foreground">−DI:</span>
+            <div className={cn("font-mono", "text-negative")}>
+              {indicator.lastValue.metadata.minusDI?.toFixed(1)}
             </div>
           </div>
         </div>

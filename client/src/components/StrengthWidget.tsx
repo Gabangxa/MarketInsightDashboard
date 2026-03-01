@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { Gauge, AlertTriangle, Clock, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -15,30 +15,30 @@ import { MINIMUM_CANDLES_FOR_INDICATORS } from "@/lib/fetchHistoricalCandles";
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const PERIODS = ["6h", "24h", "3d", "7d"];
 
-// Momentum: RSI, MACD, Stochastic, ROC, MFI, Williams %R
-const MOMENTUM_IDS = ["rsi", "macd", "stochastic", "roc", "mfi", "williamsR"] as const;
+// Strength: ADX
+const STRENGTH_IDS = ["adx"] as const;
 
 interface Props {
   exchanges?: string[];
 }
 
-export default function MomentumWidget({ exchanges = ["bybit"] }: Props) {
+export default function StrengthWidget({ exchanges = ["bybit"] }: Props) {
   const { symbol, timeframe, setTimeframe, period, setPeriod, historicalData, isLoading, error, indicators } =
     useIndicatorData(exchanges);
 
-  const momentumIndicators = MOMENTUM_IDS.map((id) => ({ id, result: indicators[id] })).filter(
+  const strengthIndicators = STRENGTH_IDS.map((id) => ({ id, result: indicators[id] })).filter(
     (x) => x.result
   );
 
   return (
-    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-momentum">
+    <Card className="h-full p-4 flex flex-col overflow-hidden" data-testid="widget-strength">
       {/* Header */}
       <div className="flex items-start justify-between mb-3 widget-drag-handle cursor-move">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
+            <Gauge className="h-4 w-4 text-blue-500" />
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Momentum — {symbol}
+              Strength — {symbol}
             </h3>
             {isLoading && (
               <Badge variant="secondary" className="text-xs gap-1">
@@ -55,7 +55,7 @@ export default function MomentumWidget({ exchanges = ["bybit"] }: Props) {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            RSI · MACD · Stochastic · ROC · MFI · Williams %R
+            ADX · +DI · −DI
           </p>
         </div>
 
@@ -84,7 +84,7 @@ export default function MomentumWidget({ exchanges = ["bybit"] }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto space-y-3 min-h-0" data-testid="momentum-indicators">
+      <div className="flex-1 overflow-auto space-y-3 min-h-0" data-testid="strength-indicators">
         {isLoading ? (
           <div className="text-center py-8">
             <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-primary" />
@@ -95,16 +95,28 @@ export default function MomentumWidget({ exchanges = ["bybit"] }: Props) {
             <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
             <p className="text-sm">{error}</p>
           </div>
-        ) : momentumIndicators.length === 0 ? (
+        ) : strengthIndicators.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <Gauge className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">Need at least {MINIMUM_CANDLES_FOR_INDICATORS} candles</p>
             <p className="text-xs mt-1">Currently have: {historicalData.size} — try a longer period</p>
           </div>
         ) : (
-          momentumIndicators.map(({ id, result }) => (
-            <IndicatorCard key={id} indicatorId={id} indicator={result} />
-          ))
+          <>
+            {strengthIndicators.map(({ id, result }) => (
+              <IndicatorCard key={id} indicatorId={id} indicator={result} />
+            ))}
+            {/* ADX strength zones legend */}
+            <div className="mt-2 p-2 bg-accent/10 rounded text-xs text-muted-foreground space-y-1">
+              <div className="font-medium text-foreground mb-1">Trend Strength</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                <span>0 – 25</span><span>Weak / No Trend</span>
+                <span>25 – 50</span><span>Moderate Trend</span>
+                <span>50 – 75</span><span>Strong Trend</span>
+                <span>75 – 100</span><span>Very Strong Trend</span>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </Card>

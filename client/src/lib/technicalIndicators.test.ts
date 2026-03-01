@@ -9,6 +9,11 @@ import {
   calculateWilliamsR,
   calculateATR,
   calculateFibonacciRetracement,
+  calculateParabolicSAR,
+  calculateROC,
+  calculateMFI,
+  calculateChaikinVolatility,
+  calculateADX,
   calculateAllIndicators,
   type PriceData,
 } from "./technicalIndicators";
@@ -222,6 +227,137 @@ describe("calculateFibonacciRetracement", () => {
   });
 });
 
+describe("calculateParabolicSAR", () => {
+  it("produces one value per candle after the first", () => {
+    const result = calculateParabolicSAR(LONG_SERIES);
+    expect(result.values.length).toBe(LONG_SERIES.length - 1);
+  });
+
+  it("signal is always buy or sell (never hold)", () => {
+    const result = calculateParabolicSAR(LONG_SERIES);
+    result.values.forEach(({ signal }) => {
+      expect(signal === "buy" || signal === "sell").toBe(true);
+    });
+  });
+
+  it("metadata contains direction, ep, and af", () => {
+    const result = calculateParabolicSAR(LONG_SERIES);
+    const last = result.lastValue!;
+    expect(last.metadata).toHaveProperty("direction");
+    expect(last.metadata).toHaveProperty("ep");
+    expect(last.metadata).toHaveProperty("af");
+  });
+
+  it("returns empty values for fewer than 2 candles", () => {
+    const result = calculateParabolicSAR(makeCandles([1]));
+    expect(result.values.length).toBe(0);
+  });
+});
+
+describe("calculateROC", () => {
+  it("values are finite numbers", () => {
+    const result = calculateROC(LONG_SERIES, 14);
+    result.values.forEach(({ value }) => {
+      expect(isFinite(value)).toBe(true);
+    });
+  });
+
+  it("produces correct number of values", () => {
+    const result = calculateROC(LONG_SERIES, 14);
+    // ROC(14) on 150 candles → 150 - 14 = 136 values
+    expect(result.values.length).toBe(150 - 14);
+  });
+
+  it("signal is buy when ROC > 5", () => {
+    const result = calculateROC(LONG_SERIES, 14);
+    result.values.filter((v) => v.value > 5).forEach(({ signal }) => {
+      expect(signal).toBe("buy");
+    });
+  });
+
+  it("rising series has positive ROC", () => {
+    const result = calculateROC(LONG_SERIES, 14);
+    expect(result.lastValue!.value).toBeGreaterThan(0);
+  });
+});
+
+describe("calculateMFI", () => {
+  it("MFI is in [0, 100] range", () => {
+    const result = calculateMFI(LONG_SERIES, 14);
+    result.values.forEach(({ value }) => {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it("produces correct number of values", () => {
+    const result = calculateMFI(LONG_SERIES, 14);
+    // MFI(14) needs period+1 candles, values start at index 14 → 150 - 14 = 136
+    expect(result.values.length).toBe(150 - 14);
+  });
+
+  it("signal is buy when MFI < 20", () => {
+    const result = calculateMFI(LONG_SERIES, 14);
+    result.values.filter((v) => v.value < 20).forEach(({ signal }) => {
+      expect(signal).toBe("buy");
+    });
+  });
+
+  it("returns empty for insufficient data", () => {
+    const result = calculateMFI(makeCandles([1, 2, 3]), 14);
+    expect(result.values.length).toBe(0);
+  });
+});
+
+describe("calculateChaikinVolatility", () => {
+  it("produces values for sufficient data", () => {
+    const result = calculateChaikinVolatility(LONG_SERIES, 10);
+    expect(result.values.length).toBeGreaterThan(0);
+  });
+
+  it("values are finite", () => {
+    const result = calculateChaikinVolatility(LONG_SERIES, 10);
+    result.values.forEach(({ value }) => {
+      expect(isFinite(value)).toBe(true);
+    });
+  });
+
+  it("returns empty for fewer than 2*period candles", () => {
+    const result = calculateChaikinVolatility(makeCandles([1, 2, 3]), 10);
+    expect(result.values.length).toBe(0);
+  });
+});
+
+describe("calculateADX", () => {
+  it("ADX is in [0, 100] range", () => {
+    const result = calculateADX(LONG_SERIES, 14);
+    result.values.forEach(({ value }) => {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it("metadata contains adx, plusDI, minusDI", () => {
+    const result = calculateADX(LONG_SERIES, 14);
+    const last = result.lastValue!;
+    expect(last.metadata).toHaveProperty("adx");
+    expect(last.metadata).toHaveProperty("plusDI");
+    expect(last.metadata).toHaveProperty("minusDI");
+  });
+
+  it("signal is buy or sell when ADX > 25", () => {
+    const result = calculateADX(LONG_SERIES, 14);
+    result.values.filter((v) => v.metadata!.adx > 25).forEach(({ signal }) => {
+      expect(signal === "buy" || signal === "sell").toBe(true);
+    });
+  });
+
+  it("returns empty for fewer than 2*period+1 candles", () => {
+    const result = calculateADX(makeCandles([1, 2, 3]), 14);
+    expect(result.values.length).toBe(0);
+  });
+});
+
 describe("calculateAllIndicators", () => {
   it("returns empty object when data is too short", () => {
     const result = calculateAllIndicators(makeCandles([1, 2, 3]));
@@ -235,12 +371,17 @@ describe("calculateAllIndicators", () => {
       "sma50",
       "ema12",
       "ema26",
+      "parabolicSar",
       "rsi",
       "macd",
-      "bollingerBands",
       "stochastic",
-      "atr",
+      "roc",
+      "mfi",
       "williamsR",
+      "bollingerBands",
+      "atr",
+      "chaikinVolatility",
+      "adx",
     ];
     expectedKeys.forEach((key) => expect(result).toHaveProperty(key));
   });

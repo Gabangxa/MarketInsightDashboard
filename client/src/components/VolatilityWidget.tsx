@@ -15,8 +15,8 @@ import { MINIMUM_CANDLES_FOR_INDICATORS } from "@/lib/fetchHistoricalCandles";
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const PERIODS = ["6h", "24h", "3d", "7d"];
 
-// Volatility: Bollinger Bands, ATR
-const VOLATILITY_IDS = ["bollingerBands", "atr"] as const;
+// Volatility: Bollinger Bands, ATR, Chaikin Volatility
+const VOLATILITY_IDS = ["bollingerBands", "atr", "chaikinVolatility"] as const;
 
 interface Props {
   exchanges?: string[];
@@ -55,7 +55,7 @@ export default function VolatilityWidget({ exchanges = ["bybit"] }: Props) {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Bollinger Bands · ATR
+            Bollinger Bands · ATR · Chaikin Volatility
           </p>
         </div>
 

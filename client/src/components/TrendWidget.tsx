@@ -15,8 +15,8 @@ import { MINIMUM_CANDLES_FOR_INDICATORS } from "@/lib/fetchHistoricalCandles";
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const PERIODS = ["6h", "24h", "3d", "7d"];
 
-// Trend: SMA 20, SMA 50, EMA 12, EMA 26
-const TREND_IDS = ["sma20", "sma50", "ema12", "ema26"] as const;
+// Trend: SMA 20, SMA 50, EMA 12, EMA 26, Parabolic SAR
+const TREND_IDS = ["sma20", "sma50", "ema12", "ema26", "parabolicSar"] as const;
 
 interface Props {
   exchanges?: string[];
@@ -55,7 +55,7 @@ export default function TrendWidget({ exchanges = ["bybit"] }: Props) {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            SMA 20 · SMA 50 · EMA 12 · EMA 26
+            SMA 20 · SMA 50 · EMA 12 · EMA 26 · Parabolic SAR
           </p>
         </div>
 
