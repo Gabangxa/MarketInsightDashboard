@@ -22,38 +22,38 @@ interface RateTier {
 
 const RATE_TIERS: RateTier[] = [
   {
-    label: "> +0.05%",
-    description: "Extreme longs — historically precedes corrections",
+    label: "> 0.05% (per 8hr)",
+    description: "Extreme — historically precedes corrections",
     textClass: "text-red-500",
     dotClass: "bg-red-500",
   },
   {
-    label: "+0.03% to +0.05%",
+    label: "0.03% to 0.05%",
     description: "Elevated longs, caution zone",
     textClass: "text-orange-400",
     dotClass: "bg-orange-400",
   },
   {
-    label: "+0.01% to +0.03%",
+    label: "0.01% to 0.03%",
     description: "Mild long bias, healthy uptrend",
     textClass: "text-emerald-500",
     dotClass: "bg-emerald-500",
   },
   {
-    label: "0.00% to +0.01%",
-    description: "Neutral / balanced market",
+    label: "0.00% to 0.01%",
+    description: "Neutral / balanced",
     textClass: "text-muted-foreground",
     dotClass: "bg-muted-foreground",
   },
   {
-    label: "−0.01% to −0.03%",
+    label: "\u20130.01% to \u20130.03%",
     description: "Mild short bias",
     textClass: "text-sky-400",
     dotClass: "bg-sky-400",
   },
   {
-    label: "< −0.03%",
-    description: "Extreme fear — potential short squeeze setup",
+    label: "< \u20130.03%",
+    description: "Extreme fear, potential short squeeze setup",
     textClass: "text-purple-500",
     dotClass: "bg-purple-500",
   },
