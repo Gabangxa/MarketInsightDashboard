@@ -15,10 +15,29 @@ export class FundingRateManager extends EventEmitter {
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
   /** Cache last known values per symbol — Bybit delta messages omit unchanged fields */
   private bybitCache: Map<string, BybitTickerCache> = new Map();
+  /** Latest emitted FundingRateData per symbol — used to serve REST requests */
+  private latestRates: Map<string, FundingRateData> = new Map();
 
   subscribeToSymbol(symbol: string) {
     this.connectBybitLinear(symbol);
     this.pollBinance(symbol);
+  }
+
+  /** Subscribe to a symbol only if not already connected */
+  ensureSubscribed(symbol: string) {
+    const key = `bybit-linear-${symbol}`;
+    const existing = this.bybitLinearConnections.get(key);
+    if (!existing || existing.readyState === WebSocket.CLOSED) {
+      this.subscribeToSymbol(symbol);
+    }
+  }
+
+  /** Return the latest cached FundingRateData for the requested symbols */
+  getLatestRates(symbols: string[]): FundingRateData[] {
+    return symbols.flatMap((sym) => {
+      const d = this.latestRates.get(sym);
+      return d ? [d] : [];
+    });
   }
 
   unsubscribeFromSymbol(symbol: string) {
@@ -123,6 +142,7 @@ export class FundingRateManager extends EventEmitter {
           console.log(
             `[FundingRate] Bybit ${payload.symbol}  rate=${payload.fundingRatePercent.toFixed(4)}%  markPrice=${payload.markPrice}  nextFunding=${new Date(payload.nextFundingTime).toISOString()}`
           );
+          this.latestRates.set(sym, payload);
           this.emit("fundingRate", payload);
         }
       } catch (error) {
@@ -173,6 +193,7 @@ export class FundingRateManager extends EventEmitter {
         console.log(
           `[FundingRate] Binance ${payload.symbol}  rate=${payload.fundingRatePercent.toFixed(4)}%  markPrice=${payload.markPrice}  nextFunding=${new Date(payload.nextFundingTime).toISOString()}`
         );
+        this.latestRates.set(symbol, payload);
         this.emit("fundingRate", payload);
       } catch {
         // Silently ignore — Binance may be geo-restricted

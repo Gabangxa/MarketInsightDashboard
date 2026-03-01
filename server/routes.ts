@@ -159,44 +159,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  app.get("/api/funding-rates", async (req, res) => {
+  app.get("/api/funding-rates", (req, res) => {
     const symbolsParam = req.query.symbols as string | undefined;
     if (!symbolsParam) return res.json([]);
     const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
-    try {
-      const results = await Promise.all(
-        symbols.map(async (symbol) => {
-          const url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`;
-          const response = await fetch(url);
-          if (!response.ok) return null;
-          const json = await response.json() as {
-            result?: { list?: Array<{
-              symbol: string;
-              markPrice: string;
-              fundingRate: string;
-              nextFundingTime: string;
-            }> };
-          };
-          const item = json?.result?.list?.[0];
-          if (!item) return null;
-          const fundingRate = parseFloat(item.fundingRate);
-          if (isNaN(fundingRate)) return null;
-          return {
-            exchange: "Bybit",
-            symbol: item.symbol,
-            fundingRate,
-            fundingRatePercent: fundingRate * 100,
-            nextFundingTime: parseInt(item.nextFundingTime, 10),
-            markPrice: parseFloat(item.markPrice),
-            timestamp: Date.now(),
-          };
-        })
-      );
-      res.json(results.filter(Boolean));
-    } catch (error) {
-      console.error("Funding rates fetch error:", error);
-      res.status(500).json({ error: "Failed to fetch funding rates" });
-    }
+    // Ensure the fundingRateManager is subscribed for each requested symbol.
+    // For symbols already subscribed via wsManager this is a no-op.
+    symbols.forEach((sym) => fundingRateManager.ensureSubscribed(sym));
+    // Return whatever cached data we have so far (may be empty on first request
+    // before the first WebSocket tick arrives — the widget refetches every 30s).
+    res.json(fundingRateManager.getLatestRates(symbols));
   });
 
   app.post("/api/webhook", async (req, res) => {

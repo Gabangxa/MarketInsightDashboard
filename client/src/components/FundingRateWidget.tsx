@@ -10,7 +10,8 @@ import type { FundingRateData } from "@shared/types";
 
 const MAX_SYMBOLS = 10;
 const STORAGE_KEY = "funding-rate-tracked-symbols";
-const REFETCH_INTERVAL_MS = 30_000;
+const REFETCH_INTERVAL_FAST_MS = 5_000;   // retry quickly until we get data
+const REFETCH_INTERVAL_NORMAL_MS = 30_000; // then slow down
 
 function formatCountdown(nextFundingTime: number): string {
   const diff = nextFundingTime - Date.now();
@@ -54,7 +55,11 @@ export default function FundingRateWidget() {
       if (!res.ok) throw new Error("Failed to fetch funding rates");
       return res.json();
     },
-    refetchInterval: REFETCH_INTERVAL_MS,
+    refetchInterval: (query) => {
+      const data = query.state.data as FundingRateData[] | undefined;
+      const hasAllData = data && data.length >= trackedSymbols.length;
+      return hasAllData ? REFETCH_INTERVAL_NORMAL_MS : REFETCH_INTERVAL_FAST_MS;
+    },
     enabled: trackedSymbols.length > 0,
   });
 
