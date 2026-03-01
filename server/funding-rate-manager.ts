@@ -81,7 +81,7 @@ export class FundingRateManager extends EventEmitter {
           const fundingRate = parseFloat(t.fundingRate);
           if (isNaN(fundingRate)) return;
 
-          this.emit("fundingRate", {
+          const payload: FundingRateData = {
             exchange: "Bybit",
             symbol: t.symbol,
             fundingRate,
@@ -89,7 +89,11 @@ export class FundingRateManager extends EventEmitter {
             nextFundingTime: parseInt(t.nextFundingTime, 10),
             markPrice: parseFloat(t.markPrice),
             timestamp: Date.now(),
-          } satisfies FundingRateData);
+          };
+          console.log(
+            `[FundingRate] Bybit ${payload.symbol}  rate=${payload.fundingRatePercent.toFixed(4)}%  markPrice=${payload.markPrice}  nextFunding=${new Date(payload.nextFundingTime).toISOString()}`
+          );
+          this.emit("fundingRate", payload);
         }
       } catch (error) {
         console.error("[Bybit Linear] Message parse error:", error);
@@ -127,7 +131,7 @@ export class FundingRateManager extends EventEmitter {
         const fundingRate = parseFloat(d.lastFundingRate);
         if (isNaN(fundingRate)) return;
 
-        this.emit("fundingRate", {
+        const payload: FundingRateData = {
           exchange: "Binance",
           symbol,
           fundingRate,
@@ -135,7 +139,11 @@ export class FundingRateManager extends EventEmitter {
           nextFundingTime: d.nextFundingTime,
           markPrice: parseFloat(d.markPrice),
           timestamp: Date.now(),
-        } satisfies FundingRateData);
+        };
+        console.log(
+          `[FundingRate] Binance ${payload.symbol}  rate=${payload.fundingRatePercent.toFixed(4)}%  markPrice=${payload.markPrice}  nextFunding=${new Date(payload.nextFundingTime).toISOString()}`
+        );
+        this.emit("fundingRate", payload);
       } catch {
         // Silently ignore — Binance may be geo-restricted
       }

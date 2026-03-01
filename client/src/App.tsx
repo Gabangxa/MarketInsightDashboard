@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import SettingsModal from "@/components/SettingsModal";
 
 function Router({ activeView, onViewChange, isConnected }: { activeView: string; onViewChange: (view: string) => void; isConnected: boolean }) {
   return (
@@ -30,6 +31,7 @@ function AuthenticatedApp() {
   const [location] = useLocation();
   const [activeView, setActiveView] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sidebarStyle = {
     "--sidebar-width": "18rem",
@@ -56,10 +58,11 @@ function AuthenticatedApp() {
     <div className="dark min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
       <SidebarProvider defaultOpen={true} style={sidebarStyle as React.CSSProperties}>
         <div className="flex h-screen w-full overflow-hidden">
-          <AppSidebar 
+          <AppSidebar
             isConnected={isConnected}
             activeView={activeView}
             onViewChange={setActiveView}
+            onSettingsClick={() => setIsSettingsOpen(true)}
           />
           <SidebarInset className="flex flex-col flex-1 overflow-hidden bg-transparent">
             <header className="flex items-center justify-between h-16 px-6 border-b border-white/5 bg-background/50 backdrop-blur-sm z-10">
@@ -121,6 +124,7 @@ function AuthenticatedApp() {
           </SidebarInset>
         </div>
       </SidebarProvider>
+      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <Toaster />
     </div>
   );

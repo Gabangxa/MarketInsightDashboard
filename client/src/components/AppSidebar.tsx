@@ -18,6 +18,7 @@ interface AppSidebarProps {
   isConnected?: boolean;
   activeView?: string;
   onViewChange?: (view: string) => void;
+  onSettingsClick?: () => void;
 }
 
 const navigationItems = [
@@ -55,7 +56,7 @@ const navigationItems = [
   },
 ];
 
-export function AppSidebar({ isConnected = true, activeView = 'dashboard', onViewChange }: AppSidebarProps) {
+export function AppSidebar({ isConnected = true, activeView = 'dashboard', onViewChange, onSettingsClick }: AppSidebarProps) {
   return (
     <Sidebar className="border-r border-white/5 bg-sidebar/50 backdrop-blur-xl">
       <SidebarHeader className="pb-4">
@@ -120,8 +121,8 @@ export function AppSidebar({ isConnected = true, activeView = 'dashboard', onVie
           <SidebarGroupContent>
             <SidebarMenu className="px-2 space-y-1">
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={() => {/* Handle settings */}} 
+                <SidebarMenuButton
+                  onClick={onSettingsClick}
                   data-testid="button-settings"
                   className="text-muted-foreground hover:text-foreground hover:bg-white/5 h-10 rounded-md"
                 >
