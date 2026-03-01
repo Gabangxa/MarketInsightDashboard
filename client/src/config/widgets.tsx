@@ -4,7 +4,9 @@ import MarketDataWidget from "@/components/MarketDataWidget";
 import OrderBookWidget from "@/components/OrderBookWidget";
 import WebhookWidget from "@/components/WebhookWidget";
 import AlertsWidget, { type Alert as AlertWidgetType } from "@/components/AlertsWidget";
-import TechnicalIndicatorsWidget from "@/components/TechnicalIndicatorsWidget";
+import MomentumWidget from "@/components/MomentumWidget";
+import TrendWidget from "@/components/TrendWidget";
+import VolatilityWidget from "@/components/VolatilityWidget";
 import CorrelationMatrixWidget from "@/components/CorrelationMatrixWidget";
 import MarketSentimentWidget from "@/components/MarketSentimentWidget";
 import FibonacciRetracementWidget from "@/components/FibonacciRetracementWidget";
@@ -108,15 +110,33 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       )
     },
     {
-      id: "technical-indicators-1",
-      title: "Technical Indicators",
+      id: "momentum-1",
+      title: "Momentum Indicators",
       category: "trading",
       priority: "medium",
       defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
       component: (
-        <TechnicalIndicatorsWidget
-          exchanges={params.technicalIndicatorExchanges}
-        />
+        <MomentumWidget exchanges={params.technicalIndicatorExchanges} />
+      )
+    },
+    {
+      id: "trend-1",
+      title: "Trend Indicators",
+      category: "trading",
+      priority: "medium",
+      defaultSize: { w: 4, h: 6, minW: 3, minH: 4 },
+      component: (
+        <TrendWidget exchanges={params.technicalIndicatorExchanges} />
+      )
+    },
+    {
+      id: "volatility-1",
+      title: "Volatility Indicators",
+      category: "trading",
+      priority: "medium",
+      defaultSize: { w: 4, h: 5, minW: 3, minH: 3 },
+      component: (
+        <VolatilityWidget exchanges={params.technicalIndicatorExchanges} />
       )
     },
     {
