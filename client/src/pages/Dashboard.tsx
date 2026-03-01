@@ -166,9 +166,12 @@ function DashboardContent() {
     },
     technicalIndicatorExchanges,
     fundingRates,
+    subscribe,
+    unsubscribe,
   }), [
     marketData, orderBooks, selectedExchanges, orderBookViewMode,
-    webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges, fundingRates
+    webhookMessages, toggleBookmarkMutation, technicalIndicatorExchanges, fundingRates,
+    subscribe, unsubscribe,
   ]);
 
   // Initialize tab system

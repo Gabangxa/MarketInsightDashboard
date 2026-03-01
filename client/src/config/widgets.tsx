@@ -37,6 +37,8 @@ interface WidgetFactoryParams {
 
   // Funding rates
   fundingRates: Map<string, Map<string, FundingRateData>>;
+  subscribe: (symbol: string, exchanges: string[]) => void;
+  unsubscribe: (symbol: string) => void;
 }
 
 export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfig[] {
@@ -175,6 +177,8 @@ export function createAvailableWidgets(params: WidgetFactoryParams): WidgetConfi
       component: (
         <FundingRateWidget
           fundingRates={params.fundingRates}
+          subscribe={params.subscribe}
+          unsubscribe={params.unsubscribe}
         />
       )
     }

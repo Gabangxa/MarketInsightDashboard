@@ -2,11 +2,19 @@ import WebSocket from "ws";
 import { EventEmitter } from "events";
 import type { FundingRateData } from "@shared/types";
 
+interface BybitTickerCache {
+  fundingRate: number;
+  nextFundingTime: number;
+  markPrice: number;
+}
+
 export class FundingRateManager extends EventEmitter {
   private bybitLinearConnections: Map<string, WebSocket> = new Map();
   private bybitPingIntervals: Map<string, NodeJS.Timeout> = new Map();
   private binanceIntervals: Map<string, NodeJS.Timeout> = new Map();
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  /** Cache last known values per symbol — Bybit delta messages omit unchanged fields */
+  private bybitCache: Map<string, BybitTickerCache> = new Map();
 
   subscribeToSymbol(symbol: string) {
     this.connectBybitLinear(symbol);
@@ -39,6 +47,8 @@ export class FundingRateManager extends EventEmitter {
       clearInterval(binanceInterval);
       this.binanceIntervals.delete(symbol);
     }
+
+    this.bybitCache.delete(symbol);
   }
 
   private connectBybitLinear(symbol: string) {
@@ -77,17 +87,37 @@ export class FundingRateManager extends EventEmitter {
         }
 
         if (message.topic?.startsWith("tickers.") && message.data) {
-          const t = message.data;
-          const fundingRate = parseFloat(t.fundingRate);
-          if (isNaN(fundingRate)) return;
+          const t = message.data as Record<string, string>;
+          const sym: string = t.symbol;
+          const prev = this.bybitCache.get(sym);
+
+          // Delta messages only include changed fields — merge with cached values
+          const rawFr = t.fundingRate;
+          const rawNft = t.nextFundingTime;
+          const rawMp = t.markPrice;
+
+          const fundingRate = (rawFr && rawFr !== "") ? parseFloat(rawFr) : prev?.fundingRate;
+          const nextFundingTime = (rawNft && rawNft !== "") ? parseInt(rawNft, 10) : prev?.nextFundingTime;
+          const markPrice = (rawMp && rawMp !== "") ? parseFloat(rawMp) : prev?.markPrice;
+
+          // Need at least a valid funding rate and next funding time to emit
+          if (fundingRate === undefined || isNaN(fundingRate)) return;
+          if (nextFundingTime === undefined || isNaN(nextFundingTime)) return;
+
+          // Update cache with whatever arrived
+          this.bybitCache.set(sym, {
+            fundingRate,
+            nextFundingTime,
+            markPrice: markPrice ?? prev?.markPrice ?? 0,
+          });
 
           const payload: FundingRateData = {
             exchange: "Bybit",
-            symbol: t.symbol,
+            symbol: sym,
             fundingRate,
             fundingRatePercent: fundingRate * 100,
-            nextFundingTime: parseInt(t.nextFundingTime, 10),
-            markPrice: parseFloat(t.markPrice),
+            nextFundingTime,
+            markPrice: markPrice ?? prev?.markPrice ?? 0,
             timestamp: Date.now(),
           };
           console.log(
